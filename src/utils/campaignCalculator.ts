@@ -8,6 +8,7 @@ interface Metrics {
   campaignBudget: number;
   cpc: number;
   ctr: number;
+  productValue: number;
 }
 
 interface PerformanceResult {
@@ -27,7 +28,8 @@ export const calculateCampaignPerformance = (metrics: Metrics): PerformanceResul
     leadCost, 
     hotLeadConversion, 
     coldLeadConversion, 
-    campaignBudget
+    campaignBudget,
+    productValue
   } = metrics;
   
   const totalLeads = Math.floor(campaignBudget / leadCost);
@@ -38,8 +40,7 @@ export const calculateCampaignPerformance = (metrics: Metrics): PerformanceResul
   const coldConversions = Math.floor(coldLeads * (coldLeadConversion / 100));
   const totalConversions = hotConversions + coldConversions;
   
-  // Assuming average product value of R$ 997
-  const productValue = 997;
+  // Use the configurable product value instead of fixed value
   const grossRevenue = totalConversions * productValue;
   const roi = ((grossRevenue - campaignBudget) / campaignBudget) * 100;
   
@@ -68,7 +69,7 @@ export const generateROIProjectionData = (metrics: Metrics) => {
     
     const leads = Math.floor(budget / metrics.leadCost);
     const conversions = Math.floor(leads * (performance.conversionRate / 100));
-    const revenue = conversions * 997;
+    const revenue = conversions * metrics.productValue;
     const profit = revenue - budget;
     const roi = (profit / budget) * 100;
     

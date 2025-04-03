@@ -136,6 +136,7 @@ const ReportPdfView: React.FC<ReportPdfViewProps> = ({ companyInfo, metrics }) =
                     <li><span className="text-gray-400">CPC:</span> R$ {metrics.cpc}</li>
                     <li><span className="text-gray-400">CTR:</span> {metrics.ctr}%</li>
                     <li><span className="text-gray-400">Orçamento:</span> R$ {metrics.campaignBudget.toLocaleString()}</li>
+                    <li><span className="text-gray-400">Valor do Produto:</span> R$ {metrics.productValue.toFixed(2)}</li>
                   </ul>
                 </div>
                 <div>

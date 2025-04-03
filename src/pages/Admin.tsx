@@ -48,6 +48,7 @@ const Admin = () => {
     cpc: 1.2, // cost per click
     ctr: 2.8, // click-through rate percentage
     campaignBudget: 5000, // budget in BRL
+    productValue: 197.90, // Default product value/ticket
   });
 
   // Company info state

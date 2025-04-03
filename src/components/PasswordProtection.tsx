@@ -83,6 +83,15 @@ const PasswordProtection: React.FC<PasswordProtectionProps> = ({ children, enabl
     }
   };
   
+  // Fix: Ensure that closing the dialog doesn't allow access when locked
+  const handleDialogOpenChange = (open: boolean) => {
+    setIsDialogOpen(open);
+    // If dialog is being closed and still locked, show it again
+    if (!open && isLocked) {
+      setTimeout(() => setIsDialogOpen(true), 100);
+    }
+  };
+  
   if (!enabled) return <>{children}</>;
   
   return (
@@ -105,7 +114,7 @@ const PasswordProtection: React.FC<PasswordProtectionProps> = ({ children, enabl
         <>{children}</>
       )}
       
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog open={isDialogOpen} onOpenChange={handleDialogOpenChange}>
         <DialogContent className="bg-vet-primary/95 text-white border-vet-secondary sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold">Área Protegida</DialogTitle>

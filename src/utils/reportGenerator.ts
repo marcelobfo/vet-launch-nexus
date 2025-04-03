@@ -22,6 +22,7 @@ interface Metrics {
   campaignBudget: number;
   cpc: number;
   ctr: number;
+  productValue: number;
 }
 
 export const generateCampaignReport = (companyInfo: CompanyInfo, metrics: Metrics): string => {
@@ -39,6 +40,7 @@ export const generateCampaignReport = (companyInfo: CompanyInfo, metrics: Metric
     - CPC: R$ ${metrics.cpc}
     - CTR: ${metrics.ctr}%
     - Orçamento da Campanha: R$ ${metrics.campaignBudget}
+    - Valor do Produto/Ticket: R$ ${metrics.productValue.toFixed(2)}
     
     Resultados Estimados:
     - Total de Leads: ${performance.totalLeads}
@@ -47,7 +49,7 @@ export const generateCampaignReport = (companyInfo: CompanyInfo, metrics: Metric
     - Conversões de Leads Quentes: ${performance.hotConversions}
     - Conversões de Leads Frios: ${performance.coldConversions}
     - Total de Conversões: ${performance.totalConversions}
-    - Receita Bruta Estimada: R$ ${performance.grossRevenue}
+    - Receita Bruta Estimada: R$ ${performance.grossRevenue.toFixed(2)}
     - ROI: ${performance.roi.toFixed(2)}%
     - Taxa de Conversão Geral: ${performance.conversionRate.toFixed(2)}%
   `;
@@ -141,7 +143,8 @@ export const sendReportToWebhook = async (
         campaignConversion: metrics.campaignConversion,
         campaignBudget: metrics.campaignBudget,
         cpc: metrics.cpc,
-        ctr: metrics.ctr
+        ctr: metrics.ctr,
+        productValue: metrics.productValue
       },
       results: {
         totalLeads: performance.totalLeads,

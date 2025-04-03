@@ -12,6 +12,7 @@ interface MetricsFormProps {
     cpc: number;
     ctr: number;
     campaignBudget: number;
+    productValue: number;
   };
   handleMetricsChange: (field: string, value: string) => void;
   handleExportReport: () => void;
@@ -43,6 +44,17 @@ const MetricsForm: React.FC<MetricsFormProps> = ({
           min="0"
           value={metrics.campaignBudget} 
           onChange={(e) => handleMetricsChange('campaignBudget', e.target.value)}
+          className="bg-vet-primary/20 border-vet-primary/30"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium mb-1">Valor do Produto/Ticket (R$)</label>
+        <Input 
+          type="number" 
+          step="0.01" 
+          min="0"
+          value={metrics.productValue} 
+          onChange={(e) => handleMetricsChange('productValue', e.target.value)}
           className="bg-vet-primary/20 border-vet-primary/30"
         />
       </div>
