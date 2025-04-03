@@ -1,8 +1,14 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import ContactFormModal from './ContactFormModal';
 
 const FinalCta = () => {
+  const [contactFormOpen, setContactFormOpen] = useState(false);
+  const whatsappNumber = "5538988285462";
+  const whatsappMessage = encodeURIComponent("Olá! Tenho interesse na estratégia de lançamento para veterinários.");
+  const whatsappLink = `https://wa.me/${whatsappNumber}?text=${whatsappMessage}`;
+
   return (
     <section className="py-20 px-6 relative">
       <div className="absolute inset-0 bg-gradient-to-b from-vet-primary/10 via-vet-primary/20 to-vet-primary/30 z-0"></div>
@@ -23,11 +29,20 @@ const FinalCta = () => {
           </p>
           
           <div className="flex flex-col sm:flex-row justify-center gap-4 mb-10">
-            <Button className="bg-vet-accent hover:bg-vet-accent/90 text-white px-8 py-6 text-lg">
+            <Button 
+              className="bg-vet-accent hover:bg-vet-accent/90 text-white px-8 py-6 text-lg"
+              onClick={() => setContactFormOpen(true)}
+            >
               Iniciar Meu Lançamento
             </Button>
-            <Button variant="outline" className="border-white/20 text-white hover:bg-white/10 px-8 py-6 text-lg">
-              Falar com um Especialista
+            <Button 
+              variant="outline" 
+              className="border-white/20 text-white hover:bg-white/10 px-8 py-6 text-lg"
+              asChild
+            >
+              <a href={whatsappLink} target="_blank" rel="noopener noreferrer">
+                Falar com um Especialista
+              </a>
             </Button>
           </div>
           
@@ -39,6 +54,13 @@ const FinalCta = () => {
           </div>
         </div>
       </div>
+      
+      <ContactFormModal 
+        open={contactFormOpen} 
+        onOpenChange={setContactFormOpen}
+        title="Iniciar meu lançamento"
+        description="Preencha o formulário abaixo para receber mais informações sobre como iniciar seu lançamento de sucesso."
+      />
     </section>
   );
 };

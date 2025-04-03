@@ -2,11 +2,26 @@
 import React, { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { ShieldCheck } from 'lucide-react';
 
 const NavBar = () => {
   const [scrolled, setScrolled] = useState(false);
+  const [companyName, setCompanyName] = useState("Veto pro 360");
   
   useEffect(() => {
+    // Check if there's stored company info in localStorage
+    const storedConfig = localStorage.getItem('siteConfig');
+    if (storedConfig) {
+      try {
+        const { companyInfo } = JSON.parse(storedConfig);
+        if (companyInfo?.name) {
+          setCompanyName(companyInfo.name);
+        }
+      } catch (error) {
+        console.error("Error parsing stored config:", error);
+      }
+    }
+    
     const handleScroll = () => {
       const isScrolled = window.scrollY > 20;
       if (isScrolled !== scrolled) {
@@ -26,10 +41,9 @@ const NavBar = () => {
       scrolled ? "bg-vet-primary/95 shadow-md backdrop-blur-sm" : "bg-transparent"
     )}>
       <div className="container mx-auto flex items-center justify-between">
-        <div className="flex items-center">
+        <div className="flex items-center gap-2">
           <h1 className="text-2xl font-bold font-poppins text-white">
-            Vet<span className="text-vet-secondary">Launch</span>
-            <span className="text-vet-accent">Nexus</span>
+            <span className="text-vet-accent">{companyName}</span>
           </h1>
         </div>
         
@@ -40,9 +54,16 @@ const NavBar = () => {
           <NavLink href="#custos">Custos</NavLink>
         </div>
         
-        <Button className="bg-vet-accent hover:bg-vet-accent/90 text-white px-6">
-          Começar Agora
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button className="bg-vet-accent hover:bg-vet-accent/90 text-white px-6">
+            Começar Agora
+          </Button>
+          <Button asChild variant="ghost" className="text-white p-1" aria-label="Administração">
+            <a href="/admin">
+              <ShieldCheck className="h-5 w-5" />
+            </a>
+          </Button>
+        </div>
       </div>
     </nav>
   );

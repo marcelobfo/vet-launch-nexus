@@ -15,9 +15,9 @@ const Footer = () => {
               Estratégia completa para transformar seu conhecimento veterinário em um negócio digital de sucesso.
             </p>
             <div className="flex space-x-4">
-              <SocialIcon />
-              <SocialIcon />
-              <SocialIcon />
+              <SocialIcon href="#" aria-label="Social media" />
+              <SocialIcon href="#" aria-label="Social media" />
+              <SocialIcon href="#" aria-label="Social media" />
             </div>
           </div>
           
@@ -48,8 +48,8 @@ const Footer = () => {
               <FooterLink href="#">Suporte</FooterLink>
               <FooterLink href="#">Consultoria</FooterLink>
               <div className="text-gray-400 text-sm pt-4">
-                <p>contato@vetlaunchnexus.com</p>
-                <p>+55 (11) 99999-9999</p>
+                <p>contato@technedigital.com.br</p>
+                <p>+55 (38) 98828-5462</p>
               </div>
             </ul>
           </div>
@@ -78,8 +78,8 @@ const FooterLink = ({ href, children }: { href: string, children: React.ReactNod
   </li>
 );
 
-const SocialIcon = () => (
-  <a href="#" className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-vet-secondary/20 transition-colors duration-200">
+const SocialIcon = ({ href, ...props }: React.ComponentPropsWithoutRef<"a">) => (
+  <a href={href} className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-vet-secondary/20 transition-colors duration-200" {...props}>
     <svg 
       className="w-4 h-4 text-white" 
       fill="currentColor" 

@@ -1,8 +1,35 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import ContactFormModal from './ContactFormModal';
 
 const Hero = () => {
+  const [contactFormOpen, setContactFormOpen] = useState(false);
+  const [heroData, setHeroData] = useState({
+    title: "Lançamento Expert Veterinário",
+    subtitle: "Estratégia completa para transformar seu conhecimento em um negócio digital de sucesso, com planejamento de lançamento otimizado para profissionais veterinários.",
+    aboutText: "Método 6 em 7, Adaptado para Veterinários"
+  });
+  
+  useEffect(() => {
+    // Check if there's stored content in localStorage
+    const storedConfig = localStorage.getItem('siteConfig');
+    if (storedConfig) {
+      try {
+        const { companyInfo } = JSON.parse(storedConfig);
+        if (companyInfo) {
+          setHeroData({
+            title: companyInfo.heroTitle || heroData.title,
+            subtitle: companyInfo.heroSubtitle || heroData.subtitle,
+            aboutText: companyInfo.aboutText || heroData.aboutText
+          });
+        }
+      } catch (error) {
+        console.error("Error parsing stored config:", error);
+      }
+    }
+  }, []);
+
   return (
     <div className="relative min-h-screen flex items-center justify-center overflow-hidden pt-16">
       {/* Gradient background */}
@@ -16,23 +43,30 @@ const Hero = () => {
       <div className="container mx-auto px-6 relative z-10 text-center">
         <div className="animate-fade-in">
           <span className="inline-block px-4 py-1.5 mb-6 text-vet-secondary bg-vet-secondary/10 rounded-full font-medium text-sm">
-            Método 6 em 7, Adaptado para Veterinários
+            {heroData.aboutText}
           </span>
           
           <h1 className="text-4xl md:text-6xl font-bold font-poppins mb-6 text-white">
-            Lançamento <span className="text-vet-secondary">Expert</span> Veterinário
+            <span className="text-vet-secondary">{heroData.title}</span>
           </h1>
           
           <p className="text-xl md:text-2xl text-gray-300 mb-10 max-w-3xl mx-auto">
-            Estratégia completa para transformar seu conhecimento em um negócio digital de sucesso, com planejamento de lançamento otimizado para profissionais veterinários.
+            {heroData.subtitle}
           </p>
           
           <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Button className="bg-vet-accent hover:bg-vet-accent/90 text-white px-8 py-6 text-lg">
+            <Button 
+              className="bg-vet-accent hover:bg-vet-accent/90 text-white px-8 py-6 text-lg"
+              onClick={() => setContactFormOpen(true)}
+            >
               Começar Meu Lançamento
             </Button>
-            <Button variant="outline" className="border-vet-secondary text-vet-secondary hover:bg-vet-secondary/10 px-8 py-6 text-lg">
-              Ver Estratégia Completa
+            <Button 
+              variant="outline" 
+              className="border-vet-secondary text-vet-secondary hover:bg-vet-secondary/10 px-8 py-6 text-lg"
+              asChild
+            >
+              <a href="#estrategia">Ver Estratégia Completa</a>
             </Button>
           </div>
         </div>
@@ -73,6 +107,13 @@ const Hero = () => {
           </svg>
         </a>
       </div>
+
+      <ContactFormModal 
+        open={contactFormOpen} 
+        onOpenChange={setContactFormOpen}
+        title="Começar meu lançamento"
+        description="Preencha o formulário abaixo para receber mais informações sobre como iniciar seu lançamento de sucesso."
+      />
     </div>
   );
 };
