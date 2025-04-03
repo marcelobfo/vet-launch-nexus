@@ -495,7 +495,10 @@ const Admin = () => {
                 
                 <Card className="bg-card">
                   <CardHeader>
-                    <CardTitle>Projeção de ROI</CardTitle>
+                    <CardTitle className="flex items-center gap-2">
+                      <BarChartHorizontal className="h-5 w-5" />
+                      <span>Projeção de ROI</span>
+                    </CardTitle>
                     <CardDescription className="text-gray-400">Por orçamento de campanha</CardDescription>
                   </CardHeader>
                   <CardContent>
