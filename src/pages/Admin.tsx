@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -474,7 +475,7 @@ const Admin = () => {
                     
                     <div className="h-[200px]">
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={conversionData}>
+                        <RechartsBarChart data={conversionData}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#444" />
                           <XAxis dataKey="name" stroke="#999" />
                           <YAxis stroke="#999" />
@@ -487,7 +488,7 @@ const Admin = () => {
                             labelStyle={{ color: '#fff' }}
                           />
                           <Bar dataKey="value" name="Taxa de Conversão (%)" fill="#22c55e" />
-                        </BarChart>
+                        </RechartsBarChart>
                       </ResponsiveContainer>
                     </div>
                   </CardContent>
