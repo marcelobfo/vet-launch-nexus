@@ -3,10 +3,12 @@ import React, { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ShieldCheck } from 'lucide-react';
+import ContactFormModal from './ContactFormModal';
 
 const NavBar = () => {
   const [scrolled, setScrolled] = useState(false);
   const [companyName, setCompanyName] = useState("Veto pro 360");
+  const [contactFormOpen, setContactFormOpen] = useState(false);
   
   useEffect(() => {
     // Check if there's stored company info in localStorage
@@ -55,7 +57,10 @@ const NavBar = () => {
         </div>
         
         <div className="flex items-center gap-3">
-          <Button className="bg-vet-accent hover:bg-vet-accent/90 text-white px-6">
+          <Button 
+            className="bg-vet-accent hover:bg-vet-accent/90 text-white px-6"
+            onClick={() => setContactFormOpen(true)}
+          >
             Começar Agora
           </Button>
           <Button asChild variant="ghost" className="text-white p-1" aria-label="Administração">
@@ -65,6 +70,13 @@ const NavBar = () => {
           </Button>
         </div>
       </div>
+      
+      <ContactFormModal 
+        open={contactFormOpen} 
+        onOpenChange={setContactFormOpen}
+        title="Começar meu lançamento"
+        description="Preencha o formulário abaixo para receber mais informações sobre como iniciar seu lançamento de sucesso."
+      />
     </nav>
   );
 };
