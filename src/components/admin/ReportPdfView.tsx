@@ -62,6 +62,19 @@ const ReportPdfView: React.FC<ReportPdfViewProps> = ({ companyInfo, metrics }) =
     }
   };
   
+  // Add safe guards for all values that might be undefined
+  const companyName = companyInfo?.name || "Empresa";
+  const currentDate = new Date().toLocaleDateString('pt-BR');
+  const leadCost = metrics?.leadCost || 0;
+  const cpc = metrics?.cpc || 0;
+  const ctr = metrics?.ctr || 0;
+  const campaignBudget = metrics?.campaignBudget || 0;
+  const productValue = metrics?.productValue || 0;
+  const landingPageConversion = metrics?.landingPageConversion || 0;
+  const campaignConversion = metrics?.campaignConversion || 0;
+  const hotLeadConversion = metrics?.hotLeadConversion || 0;
+  const coldLeadConversion = metrics?.coldLeadConversion || 0;
+  
   return (
     <div className="space-y-6">
       <Card className="bg-card">
@@ -93,10 +106,10 @@ const ReportPdfView: React.FC<ReportPdfViewProps> = ({ companyInfo, metrics }) =
           >
             <div className="text-center mb-8">
               <h2 className="text-2xl font-bold text-white mb-2">
-                Relatório de Campanha - {companyInfo.name}
+                Relatório de Campanha - {companyName}
               </h2>
               <p className="text-gray-400">
-                Gerado em {new Date().toLocaleDateString('pt-BR')}
+                Gerado em {currentDate}
               </p>
             </div>
             
@@ -132,11 +145,11 @@ const ReportPdfView: React.FC<ReportPdfViewProps> = ({ companyInfo, metrics }) =
                     Configurações de Campanha
                   </h3>
                   <ul className="space-y-2 text-sm text-gray-300">
-                    <li><span className="text-gray-400">Custo por Lead:</span> R$ {metrics.leadCost}</li>
-                    <li><span className="text-gray-400">CPC:</span> R$ {metrics.cpc}</li>
-                    <li><span className="text-gray-400">CTR:</span> {metrics.ctr}%</li>
-                    <li><span className="text-gray-400">Orçamento:</span> R$ {metrics.campaignBudget.toLocaleString()}</li>
-                    <li><span className="text-gray-400">Valor do Produto:</span> R$ {metrics.productValue.toFixed(2)}</li>
+                    <li><span className="text-gray-400">Custo por Lead:</span> R$ {leadCost}</li>
+                    <li><span className="text-gray-400">CPC:</span> R$ {cpc}</li>
+                    <li><span className="text-gray-400">CTR:</span> {ctr}%</li>
+                    <li><span className="text-gray-400">Orçamento:</span> R$ {Number(campaignBudget).toLocaleString()}</li>
+                    <li><span className="text-gray-400">Valor do Produto:</span> R$ {Number(productValue).toFixed(2)}</li>
                   </ul>
                 </div>
                 <div>
@@ -144,10 +157,10 @@ const ReportPdfView: React.FC<ReportPdfViewProps> = ({ companyInfo, metrics }) =
                     Taxas de Conversão
                   </h3>
                   <ul className="space-y-2 text-sm text-gray-300">
-                    <li><span className="text-gray-400">Landing Page:</span> {metrics.landingPageConversion}%</li>
-                    <li><span className="text-gray-400">Campanha Leads:</span> {metrics.campaignConversion}%</li>
-                    <li><span className="text-gray-400">Leads Quentes:</span> {metrics.hotLeadConversion}%</li>
-                    <li><span className="text-gray-400">Leads Frios:</span> {metrics.coldLeadConversion}%</li>
+                    <li><span className="text-gray-400">Landing Page:</span> {landingPageConversion}%</li>
+                    <li><span className="text-gray-400">Campanha Leads:</span> {campaignConversion}%</li>
+                    <li><span className="text-gray-400">Leads Quentes:</span> {hotLeadConversion}%</li>
+                    <li><span className="text-gray-400">Leads Frios:</span> {coldLeadConversion}%</li>
                   </ul>
                 </div>
               </div>
