@@ -1,14 +1,10 @@
-import React from "react"
-import Link from "next/link"
 
-import { siteConfig } from "@/config/site"
-import { cn } from "@/lib/utils"
-import { Icons } from "@/components/icons"
-import { ModeToggle } from "@/components/mode-toggle"
+import React from "react"
+import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
-import { UserCircle, LogOut } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { useToast } from "@/hooks/use-toast";
+import { UserCircle, LogOut, Sun, Moon, Menu } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { useToast } from "@/hooks/use-toast"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,7 +13,12 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "@/components/ui/dropdown-menu"
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+} from "@/components/ui/sheet"
 
 interface NavBarProps {
   isDarkTheme: boolean;
@@ -42,22 +43,35 @@ export function NavBar({ isDarkTheme, setIsDarkTheme }: NavBarProps) {
     navigate('/login');
   };
 
+  const ModeToggle = ({ isDarkTheme, setIsDarkTheme }: { isDarkTheme: boolean; setIsDarkTheme: (value: boolean) => void }) => {
+    return (
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => setIsDarkTheme(!isDarkTheme)}
+        aria-label="Toggle theme"
+      >
+        {isDarkTheme ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+      </Button>
+    );
+  };
+
   return (
     <div className="border-b bg-background sticky top-0 z-50">
       <div className="container flex h-16 items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
-          <Icons.logo className="h-6 w-6" />
-          <span className="font-semibold">{siteConfig.name}</span>
+        <Link to="/" className="flex items-center gap-2">
+          <div className="h-6 w-6 rounded-full bg-primary flex items-center justify-center text-white font-bold">V</div>
+          <span className="font-semibold">Vet Pro 360</span>
         </Link>
         <div className="flex items-center space-x-4">
           <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
-            <Link href="/pricing" className="hover:underline underline-offset-4">
+            <Link to="/pricing" className="hover:underline underline-offset-4">
               Pricing
             </Link>
-            <Link href="/blog" className="hover:underline underline-offset-4">
+            <Link to="/blog" className="hover:underline underline-offset-4">
               Blog
             </Link>
-            <Link href="/docs" className="hover:underline underline-offset-4">
+            <Link to="/docs" className="hover:underline underline-offset-4">
               Docs
             </Link>
           </nav>
@@ -95,26 +109,26 @@ export function NavBar({ isDarkTheme, setIsDarkTheme }: NavBarProps) {
           <Sheet>
             <SheetTrigger asChild>
               <Button variant="ghost" size="sm" className="md:hidden">
-                <Icons.menu className="h-5 w-5 rotate-90 sm:rotate-0" />
+                <Menu className="h-5 w-5 rotate-90 sm:rotate-0" />
               </Button>
             </SheetTrigger>
             <SheetContent side="bottom" className="sm:top-20 sm:h-[calc(100vh-80px)]">
               <div className="grid gap-4 py-4">
-                <Link href="/" className="flex items-center space-x-2 font-medium">
-                  <Icons.logo className="h-4 w-4" />
-                  <span>{siteConfig.name}</span>
+                <Link to="/" className="flex items-center space-x-2 font-medium">
+                  <div className="h-4 w-4 rounded-full bg-primary flex items-center justify-center text-white font-bold text-xs">V</div>
+                  <span>Vet Pro 360</span>
                 </Link>
-                <Link href="/pricing">
+                <Link to="/pricing">
                   <Button variant="ghost" className="w-full justify-start">
                     Pricing
                   </Button>
                 </Link>
-                <Link href="/blog">
+                <Link to="/blog">
                   <Button variant="ghost" className="w-full justify-start">
                     Blog
                   </Button>
                 </Link>
-                <Link href="/docs">
+                <Link to="/docs">
                   <Button variant="ghost" className="w-full justify-start">
                     Docs
                   </Button>
@@ -135,12 +149,3 @@ export function NavBar({ isDarkTheme, setIsDarkTheme }: NavBarProps) {
     </div>
   )
 }
-
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet"
