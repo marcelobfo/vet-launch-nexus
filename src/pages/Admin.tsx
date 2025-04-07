@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -92,6 +91,15 @@ const Admin = () => {
     url: "",
     autoSend: false,
     frequency: "weekly" as "daily" | "weekly" | "monthly",
+    registrationWebhookUrl: "",
+    smtpSettings: {
+      host: "",
+      port: 587,
+      user: "",
+      password: "",
+      fromEmail: "",
+      fromName: "",
+    }
   });
   
   // Security settings

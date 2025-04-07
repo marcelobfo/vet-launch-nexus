@@ -1,100 +1,146 @@
+import React from "react"
+import Link from "next/link"
 
-import React, { useState, useEffect } from 'react';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { ShieldCheck } from 'lucide-react';
-import ContactFormModal from './ContactFormModal';
+import { siteConfig } from "@/config/site"
+import { cn } from "@/lib/utils"
+import { Icons } from "@/components/icons"
+import { ModeToggle } from "@/components/mode-toggle"
+import { Button } from "@/components/ui/button"
+import { UserCircle, LogOut } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useToast } from "@/hooks/use-toast";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
-const NavBar = () => {
-  const [scrolled, setScrolled] = useState(false);
-  const [companyName, setCompanyName] = useState("Veto pro 360");
-  const [contactFormOpen, setContactFormOpen] = useState(false);
-  
-  useEffect(() => {
-    // Check if there's stored company info in localStorage
-    const storedConfig = localStorage.getItem('siteConfig');
-    if (storedConfig) {
-      try {
-        const { companyInfo } = JSON.parse(storedConfig);
-        if (companyInfo?.name) {
-          setCompanyName(companyInfo.name);
-        }
-      } catch (error) {
-        console.error("Error parsing stored config:", error);
-      }
-    }
-    
-    const handleScroll = () => {
-      const isScrolled = window.scrollY > 20;
-      if (isScrolled !== scrolled) {
-        setScrolled(isScrolled);
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-    };
-  }, [scrolled]);
-
-  return (
-    <nav className={cn(
-      "fixed top-0 left-0 right-0 z-50 transition-all duration-300 py-4 px-6",
-      scrolled ? "bg-vet-primary/95 shadow-md backdrop-blur-sm" : "bg-transparent"
-    )}>
-      <div className="container mx-auto flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-bold font-poppins text-white">
-            <span className="text-vet-accent">{companyName}</span>
-          </h1>
-        </div>
-        
-        <div className="hidden md:flex items-center space-x-8">
-          <NavLink href="#estrategia">Estratégia</NavLink>
-          <NavLink href="#etapas">Etapas</NavLink>
-          <NavLink href="#automacao">Automação</NavLink>
-          <NavLink href="#custos">Custos</NavLink>
-        </div>
-        
-        <div className="flex items-center gap-3">
-          <Button 
-            className="bg-vet-accent hover:bg-vet-accent/90 text-white px-6"
-            onClick={() => setContactFormOpen(true)}
-          >
-            Começar Agora
-          </Button>
-          <Button asChild variant="ghost" className="text-white p-1" aria-label="Administração">
-            <a href="/admin">
-              <ShieldCheck className="h-5 w-5" />
-            </a>
-          </Button>
-        </div>
-      </div>
-      
-      <ContactFormModal 
-        open={contactFormOpen} 
-        onOpenChange={setContactFormOpen}
-        title="Começar meu lançamento"
-        description="Preencha o formulário abaixo para receber mais informações sobre como iniciar seu lançamento de sucesso."
-      />
-    </nav>
-  );
-};
-
-interface NavLinkProps {
-  href: string;
-  children: React.ReactNode;
+interface NavBarProps {
+  isDarkTheme: boolean;
+  setIsDarkTheme: (isDarkTheme: boolean) => void;
 }
 
-const NavLink = ({ href, children }: NavLinkProps) => {
-  return (
-    <a 
-      href={href} 
-      className="text-gray-300 hover:text-white hover:scale-105 transition-all duration-200 font-medium"
-    >
-      {children}
-    </a>
-  );
-};
+export function NavBar({ isDarkTheme, setIsDarkTheme }: NavBarProps) {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const userEmail = localStorage.getItem("userEmail") || "Usuário";
 
-export default NavBar;
+  const handleLogout = () => {
+    localStorage.removeItem("isLoggedIn");
+    localStorage.removeItem("userEmail");
+    localStorage.removeItem("companyCode");
+
+    toast({
+      title: "Logout realizado",
+      description: "Você foi desconectado com sucesso.",
+    });
+
+    navigate('/login');
+  };
+
+  return (
+    <div className="border-b bg-background sticky top-0 z-50">
+      <div className="container flex h-16 items-center justify-between">
+        <Link href="/" className="flex items-center gap-2">
+          <Icons.logo className="h-6 w-6" />
+          <span className="font-semibold">{siteConfig.name}</span>
+        </Link>
+        <div className="flex items-center space-x-4">
+          <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
+            <Link href="/pricing" className="hover:underline underline-offset-4">
+              Pricing
+            </Link>
+            <Link href="/blog" className="hover:underline underline-offset-4">
+              Blog
+            </Link>
+            <Link href="/docs" className="hover:underline underline-offset-4">
+              Docs
+            </Link>
+          </nav>
+          <ModeToggle isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
+          <div className="hidden md:block">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                  <UserCircle className="h-6 w-6" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">{userEmail}</p>
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {localStorage.getItem("companyCode") || "Empresa"}
+                    </p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  <DropdownMenuItem onClick={() => navigate('/admin')}>
+                    Dashboard
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Sair</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="sm" className="md:hidden">
+                <Icons.menu className="h-5 w-5 rotate-90 sm:rotate-0" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="bottom" className="sm:top-20 sm:h-[calc(100vh-80px)]">
+              <div className="grid gap-4 py-4">
+                <Link href="/" className="flex items-center space-x-2 font-medium">
+                  <Icons.logo className="h-4 w-4" />
+                  <span>{siteConfig.name}</span>
+                </Link>
+                <Link href="/pricing">
+                  <Button variant="ghost" className="w-full justify-start">
+                    Pricing
+                  </Button>
+                </Link>
+                <Link href="/blog">
+                  <Button variant="ghost" className="w-full justify-start">
+                    Blog
+                  </Button>
+                </Link>
+                <Link href="/docs">
+                  <Button variant="ghost" className="w-full justify-start">
+                    Docs
+                  </Button>
+                </Link>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start"
+                  onClick={handleLogout}
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sair
+                </Button>
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet"
