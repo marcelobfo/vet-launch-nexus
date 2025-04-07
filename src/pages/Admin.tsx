@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { 
   BarChart, 
@@ -13,8 +12,28 @@ import {
   ArrowLeftCircle,
   Shield,
   Globe,
-  FileDown
+  FileDown,
+  Database,
+  Users,
+  Layout,
+  BrainCircuit
 } from "lucide-react";
+
+// Import sidebar components
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarInset
+} from "@/components/ui/sidebar";
 
 // Import components
 import PasswordProtection from "@/components/PasswordProtection";
@@ -28,6 +47,10 @@ import ROIChart from "@/components/admin/ROIChart";
 import WebhookSettings from "@/components/admin/WebhookSettings";
 import SecuritySettings from "@/components/admin/SecuritySettings";
 import ReportPdfView from "@/components/admin/ReportPdfView";
+import DatabaseConfig from "@/components/admin/DatabaseConfig";
+import ProjectManagement from "@/components/admin/ProjectManagement";
+import FacebookApiConfig from "@/components/admin/FacebookApiConfig";
+import CompanyManagement from "@/components/admin/CompanyManagement";
 
 // Import utilities
 import { calculateCampaignPerformance, generateROIProjectionData } from "@/utils/campaignCalculator";
@@ -36,7 +59,7 @@ import { generateCampaignReport, downloadReport } from "@/utils/reportGenerator"
 const Admin = () => {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState("geral");
+  const [activeSection, setActiveSection] = useState("geral");
   
   // Campaign metrics state
   const [metrics, setMetrics] = useState({
@@ -149,180 +172,314 @@ const Admin = () => {
     });
   };
 
-  return (
-    <PasswordProtection enabled={securitySettings.passwordProtection}>
-      <div className="min-h-screen bg-vet-dark text-white px-6 py-20">
-        <div className="container mx-auto">
-          <div className="flex justify-between items-center mb-8">
-            <div>
-              <h1 className="text-3xl font-bold font-poppins">Painel de Administração</h1>
-              <p className="text-gray-400">Configure seu site de lançamento</p>
-            </div>
-            <Button asChild variant="outline" className="gap-2">
-              <a href="/">
-                <ArrowLeftCircle className="h-4 w-4" />
-                <span>Voltar ao site</span>
-              </a>
-            </Button>
-          </div>
-          
-          <Tabs defaultValue="geral" value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid grid-cols-6 max-w-3xl gap-2">
-              <TabsTrigger value="geral" className="gap-2">
-                <Settings className="h-4 w-4" />
-                <span>Geral</span>
-              </TabsTrigger>
-              <TabsTrigger value="cores" className="gap-2">
-                <PaintBucket className="h-4 w-4" />
-                <span>Cores</span>
-              </TabsTrigger>
-              <TabsTrigger value="textos" className="gap-2">
-                <Type className="h-4 w-4" />
-                <span>Textos</span>
-              </TabsTrigger>
-              <TabsTrigger value="metricas" className="gap-2">
-                <BarChart className="h-4 w-4" />
-                <span>Métricas</span>
-              </TabsTrigger>
-              <TabsTrigger value="seguranca" className="gap-2">
-                <Shield className="h-4 w-4" />
-                <span>Segurança</span>
-              </TabsTrigger>
-              <TabsTrigger value="integracao" className="gap-2">
-                <Globe className="h-4 w-4" />
-                <span>Integração</span>
-              </TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="geral" className="space-y-6">
+  // Get content based on active section
+  const renderContent = () => {
+    switch (activeSection) {
+      case "geral":
+        return (
+          <Card className="bg-card">
+            <CardHeader>
+              <CardTitle>Informações da Empresa</CardTitle>
+              <CardDescription className="text-gray-400">Configure as informações básicas da empresa</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <CompanyInfoForm 
+                companyInfo={companyInfo} 
+                handleCompanyInfoChange={handleCompanyInfoChange} 
+              />
+            </CardContent>
+          </Card>
+        );
+      case "cores":
+        return (
+          <Card className="bg-card">
+            <CardHeader>
+              <CardTitle>Esquema de Cores</CardTitle>
+              <CardDescription className="text-gray-400">Personalize as cores do site</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <ColorSchemeForm 
+                companyInfo={companyInfo} 
+                handleCompanyInfoChange={handleCompanyInfoChange} 
+              />
+            </CardContent>
+          </Card>
+        );
+      case "textos":
+        return (
+          <Card className="bg-card">
+            <CardHeader>
+              <CardTitle>Textos do Site</CardTitle>
+              <CardDescription className="text-gray-400">Edite os textos principais do site</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <TextsForm 
+                companyInfo={companyInfo} 
+                handleCompanyInfoChange={handleCompanyInfoChange} 
+              />
+            </CardContent>
+          </Card>
+        );
+      case "metricas":
+        return (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card className="bg-card">
                 <CardHeader>
-                  <CardTitle>Informações da Empresa</CardTitle>
-                  <CardDescription className="text-gray-400">Configure as informações básicas da empresa</CardDescription>
+                  <CardTitle>Métricas da Campanha</CardTitle>
+                  <CardDescription className="text-gray-400">Configure os parâmetros para cálculo de desempenho</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <CompanyInfoForm 
-                    companyInfo={companyInfo} 
-                    handleCompanyInfoChange={handleCompanyInfoChange} 
+                  <MetricsForm 
+                    metrics={metrics} 
+                    handleMetricsChange={handleMetricsChange}
+                    handleExportReport={handleExportReport}
                   />
                 </CardContent>
+                <CardFooter className="flex justify-between border-t border-gray-800 pt-4">
+                  <Button 
+                    variant="outline" 
+                    onClick={handleExportReport}
+                    className="bg-vet-primary/20 hover:bg-vet-primary/30"
+                  >
+                    <FileDown className="mr-2 h-4 w-4" />
+                    Exportar TXT
+                  </Button>
+                </CardFooter>
               </Card>
-            </TabsContent>
-            
-            <TabsContent value="cores" className="space-y-6">
-              <Card className="bg-card">
-                <CardHeader>
-                  <CardTitle>Esquema de Cores</CardTitle>
-                  <CardDescription className="text-gray-400">Personalize as cores do site</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <ColorSchemeForm 
-                    companyInfo={companyInfo} 
-                    handleCompanyInfoChange={handleCompanyInfoChange} 
-                  />
-                </CardContent>
-              </Card>
-            </TabsContent>
-            
-            <TabsContent value="textos" className="space-y-6">
-              <Card className="bg-card">
-                <CardHeader>
-                  <CardTitle>Textos do Site</CardTitle>
-                  <CardDescription className="text-gray-400">Edite os textos principais do site</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <TextsForm 
-                    companyInfo={companyInfo} 
-                    handleCompanyInfoChange={handleCompanyInfoChange} 
-                  />
-                </CardContent>
-              </Card>
-            </TabsContent>
-            
-            <TabsContent value="metricas" className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              
+              <div className="space-y-6">
                 <Card className="bg-card">
                   <CardHeader>
-                    <CardTitle>Métricas da Campanha</CardTitle>
-                    <CardDescription className="text-gray-400">Configure os parâmetros para cálculo de desempenho</CardDescription>
+                    <CardTitle>Previsão de Desempenho</CardTitle>
+                    <CardDescription className="text-gray-400">Baseado nos parâmetros configurados</CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <MetricsForm 
-                      metrics={metrics} 
-                      handleMetricsChange={handleMetricsChange}
-                      handleExportReport={handleExportReport}
-                    />
+                  <CardContent>
+                    <PerformanceMetrics performance={performance} />
+                    <ConversionChart data={conversionData} />
                   </CardContent>
-                  <CardFooter className="flex justify-between border-t border-gray-800 pt-4">
-                    <Button 
-                      variant="outline" 
-                      onClick={handleExportReport}
-                      className="bg-vet-primary/20 hover:bg-vet-primary/30"
-                    >
-                      <FileDown className="mr-2 h-4 w-4" />
-                      Exportar TXT
-                    </Button>
-                  </CardFooter>
                 </Card>
                 
-                <div className="space-y-6">
-                  <Card className="bg-card">
-                    <CardHeader>
-                      <CardTitle>Previsão de Desempenho</CardTitle>
-                      <CardDescription className="text-gray-400">Baseado nos parâmetros configurados</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <PerformanceMetrics performance={performance} />
-                      <ConversionChart data={conversionData} />
-                    </CardContent>
-                  </Card>
-                  
-                  <Card className="bg-card">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <BarChartHorizontal className="h-5 w-5" />
-                        <span>Projeção de ROI</span>
-                      </CardTitle>
-                      <CardDescription className="text-gray-400">Por orçamento de campanha</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <ROIChart data={roiData} />
-                    </CardContent>
-                  </Card>
-                </div>
+                <Card className="bg-card">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <BarChartHorizontal className="h-5 w-5" />
+                      <span>Projeção de ROI</span>
+                    </CardTitle>
+                    <CardDescription className="text-gray-400">Por orçamento de campanha</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ROIChart data={roiData} />
+                  </CardContent>
+                </Card>
               </div>
-              
-              <ReportPdfView companyInfo={companyInfo} metrics={metrics} />
-            </TabsContent>
-            
-            <TabsContent value="seguranca" className="space-y-6">
-              <SecuritySettings 
-                securitySettings={securitySettings}
-                setSecuritySettings={setSecuritySettings}
-              />
-            </TabsContent>
-            
-            <TabsContent value="integracao" className="space-y-6">
-              <WebhookSettings 
-                companyInfo={companyInfo}
-                metrics={metrics}
-                webhookSettings={webhookSettings}
-                setWebhookSettings={setWebhookSettings}
-              />
-            </TabsContent>
-          </Tabs>
-          
-          <div className="mt-8 flex justify-end">
-            <Button 
-              onClick={handleSave} 
-              disabled={saving}
-              className="bg-vet-secondary hover:bg-vet-secondary/90"
-            >
-              {saving ? "Salvando..." : "Salvar Alterações"}
-            </Button>
+            </div>
+            <ReportPdfView companyInfo={companyInfo} metrics={metrics} />
           </div>
+        );
+      case "seguranca":
+        return (
+          <SecuritySettings 
+            securitySettings={securitySettings}
+            setSecuritySettings={setSecuritySettings}
+          />
+        );
+      case "integracao":
+        return (
+          <WebhookSettings 
+            companyInfo={companyInfo}
+            metrics={metrics}
+            webhookSettings={webhookSettings}
+            setWebhookSettings={setWebhookSettings}
+          />
+        );
+      case "database":
+        return <DatabaseConfig />;
+      case "projetos":
+        return <ProjectManagement />;
+      case "facebook":
+        return <FacebookApiConfig />;
+      case "empresas":
+        return <CompanyManagement />;
+      default:
+        return (
+          <Card className="bg-card">
+            <CardHeader>
+              <CardTitle>Selecione uma opção</CardTitle>
+              <CardDescription className="text-gray-400">Escolha uma opção no menu lateral</CardDescription>
+            </CardHeader>
+          </Card>
+        );
+    }
+  };
+
+  return (
+    <PasswordProtection enabled={securitySettings.passwordProtection}>
+      <SidebarProvider>
+        <div className="min-h-screen bg-vet-dark text-white flex w-full">
+          <Sidebar variant="inset" side="left">
+            <SidebarHeader className="border-b border-gray-800 pb-2">
+              <div className="flex items-center gap-2 px-2">
+                <div className="w-8 h-8 rounded-md bg-vet-primary flex items-center justify-center">
+                  <Layout className="h-5 w-5 text-white" />
+                </div>
+                <div className="font-semibold text-lg">Admin Panel</div>
+              </div>
+            </SidebarHeader>
+            
+            <SidebarContent>
+              <SidebarGroup>
+                <SidebarGroupLabel>Configurações Gerais</SidebarGroupLabel>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton 
+                      onClick={() => setActiveSection("geral")} 
+                      isActive={activeSection === "geral"}
+                      tooltip="Informações Gerais"
+                    >
+                      <Settings className="h-4 w-4" />
+                      <span>Informações Gerais</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton 
+                      onClick={() => setActiveSection("cores")} 
+                      isActive={activeSection === "cores"}
+                      tooltip="Cores"
+                    >
+                      <PaintBucket className="h-4 w-4" />
+                      <span>Cores</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton 
+                      onClick={() => setActiveSection("textos")} 
+                      isActive={activeSection === "textos"}
+                      tooltip="Textos"
+                    >
+                      <Type className="h-4 w-4" />
+                      <span>Textos</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroup>
+              
+              <SidebarGroup>
+                <SidebarGroupLabel>Análise e Dados</SidebarGroupLabel>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton 
+                      onClick={() => setActiveSection("metricas")} 
+                      isActive={activeSection === "metricas"}
+                      tooltip="Métricas"
+                    >
+                      <BarChart className="h-4 w-4" />
+                      <span>Métricas</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton 
+                      onClick={() => setActiveSection("facebook")} 
+                      isActive={activeSection === "facebook"}
+                      tooltip="Facebook API"
+                    >
+                      <Globe className="h-4 w-4" />
+                      <span>Facebook API</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroup>
+              
+              <SidebarGroup>
+                <SidebarGroupLabel>Gerenciamento</SidebarGroupLabel>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton 
+                      onClick={() => setActiveSection("projetos")} 
+                      isActive={activeSection === "projetos"}
+                      tooltip="Projetos"
+                    >
+                      <BrainCircuit className="h-4 w-4" />
+                      <span>Projetos</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton 
+                      onClick={() => setActiveSection("empresas")} 
+                      isActive={activeSection === "empresas"}
+                      tooltip="Empresas"
+                    >
+                      <Layout className="h-4 w-4" />
+                      <span>Empresas</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroup>
+              
+              <SidebarGroup>
+                <SidebarGroupLabel>Sistema</SidebarGroupLabel>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton 
+                      onClick={() => setActiveSection("database")} 
+                      isActive={activeSection === "database"}
+                      tooltip="Banco de Dados"
+                    >
+                      <Database className="h-4 w-4" />
+                      <span>Banco de Dados</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton 
+                      onClick={() => setActiveSection("seguranca")} 
+                      isActive={activeSection === "seguranca"}
+                      tooltip="Segurança"
+                    >
+                      <Shield className="h-4 w-4" />
+                      <span>Segurança</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton 
+                      onClick={() => setActiveSection("integracao")} 
+                      isActive={activeSection === "integracao"}
+                      tooltip="Integrações"
+                    >
+                      <Globe className="h-4 w-4" />
+                      <span>Integrações</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroup>
+            </SidebarContent>
+            
+            <SidebarFooter className="border-t border-gray-800 pt-2">
+              <div className="flex justify-between items-center px-4">
+                <Button asChild variant="outline" size="sm" className="gap-2">
+                  <a href="/">
+                    <ArrowLeftCircle className="h-4 w-4" />
+                    <span>Voltar ao site</span>
+                  </a>
+                </Button>
+                
+                <Button 
+                  onClick={handleSave} 
+                  disabled={saving}
+                  size="sm"
+                  className="bg-vet-secondary hover:bg-vet-secondary/90"
+                >
+                  {saving ? "Salvando..." : "Salvar"}
+                </Button>
+              </div>
+            </SidebarFooter>
+          </Sidebar>
+          
+          <SidebarInset className="p-6">
+            <SidebarTrigger className="mb-4" />
+            {renderContent()}
+          </SidebarInset>
         </div>
-      </div>
+      </SidebarProvider>
     </PasswordProtection>
   );
 };
