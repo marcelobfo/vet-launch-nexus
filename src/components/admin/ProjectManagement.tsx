@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -836,3 +837,201 @@ const ProjectManagement = () => {
                             </Avatar>
                             <span>{assignee.name}</span>
                             <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-4 w-4 ml-1 text-gray-400 hover:text-white p-0"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveTeamMember(assignee.id);
+                              }}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ))
+                      ) : (
+                        <span className="text-sm text-gray-500">Clique em "Adicionar" para selecionar responsáveis</span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="urgente" 
+                      checked={newTask.isUrgent}
+                      onCheckedChange={(checked) => setNewTask({...newTask, isUrgent: checked as boolean})}
+                    />
+                    <label
+                      htmlFor="urgente"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      Marcar como urgente
+                    </label>
+                  </div>
+                </div>
+                
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setShowNewCardDialog(false)}>Cancelar</Button>
+                  <Button onClick={handleAddTask}>Adicionar</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </>
+        );
+
+      case 'list':
+        return (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between mb-4">
+              <div className="relative w-64">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Buscar projetos..."
+                  className="pl-8"
+                />
+              </div>
+              
+              <Button className="gap-1">
+                <Plus className="h-4 w-4" />
+                <span>Novo Projeto</span>
+              </Button>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {projectCards.map(card => (
+                <Card key={card.id} className="bg-card">
+                  <CardHeader className="pb-2">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <CardTitle className="text-lg">{card.title}</CardTitle>
+                        <CardDescription>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${card.tag.color} bg-opacity-20 mt-1`}>
+                            {card.tag.name}
+                          </span>
+                          <span className="ml-2 text-gray-400">
+                            {card.status}
+                          </span>
+                        </CardDescription>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem>
+                            <Edit className="h-4 w-4 mr-2" />
+                            Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem>
+                            <CheckSquare className="h-4 w-4 mr-2" />
+                            Marcar como concluído
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-red-500">
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Remover
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pb-2">
+                    <div className="space-y-3">
+                      <div className="flex justify-between text-sm">
+                        <div className="flex items-center gap-2">
+                          <CalendarDays className="h-4 w-4 text-gray-400" />
+                          <span>{new Date(card.dueDate).toLocaleDateString('pt-BR')}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <ListTodo className="h-4 w-4 text-gray-400" />
+                          <span>{card.completed}/{card.tasks} tarefas</span>
+                        </div>
+                      </div>
+                      
+                      <div className="w-full bg-gray-800 rounded-full h-2">
+                        <div 
+                          className={`${card.progress === 100 ? 'bg-green-500' : 'bg-vet-primary'} h-2 rounded-full`}
+                          style={{ width: `${card.progress}%` }}
+                        ></div>
+                      </div>
+                      
+                      {card.isUrgent && (
+                        <div className="flex items-center gap-1 text-red-400 text-xs">
+                          <AlertCircle className="h-3.5 w-3.5" />
+                          <span>Prioridade alta</span>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                  <CardFooter className="pt-2 border-t border-gray-800">
+                    <div className="flex justify-between items-center w-full">
+                      <div className="flex -space-x-2">
+                        {card.assignees.slice(0, 3).map((assignee) => (
+                          <Avatar key={assignee.id} className="h-6 w-6 border border-gray-800">
+                            {assignee.avatar ? (
+                              <AvatarImage src={assignee.avatar} alt={assignee.name} />
+                            ) : (
+                              <AvatarFallback>{assignee.name.charAt(0)}</AvatarFallback>
+                            )}
+                          </Avatar>
+                        ))}
+                        {card.assignees.length > 3 && (
+                          <div className="h-6 w-6 rounded-full bg-gray-700 flex items-center justify-center text-xs text-white border border-gray-800">
+                            +{card.assignees.length - 3}
+                          </div>
+                        )}
+                      </div>
+                      <Button variant="ghost" size="sm" className="gap-1">
+                        <Grid2X2 className="h-3.5 w-3.5" />
+                        <span className="text-xs">Ver Kanban</span>
+                      </Button>
+                    </div>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          </div>
+        );
+        
+      default:
+        return (
+          <div className="p-4 flex items-center justify-center">
+            <p>Selecione uma visualização</p>
+          </div>
+        );
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">Gerenciamento de Projetos</h2>
+        
+        <div className="flex items-center gap-2">
+          <Tabs defaultValue={viewType} onValueChange={(v) => setViewType(v as 'mindmap' | 'kanban' | 'list')}>
+            <TabsList className="grid grid-cols-3 w-[300px]">
+              <TabsTrigger value="mindmap" className="flex items-center gap-1">
+                <BrainCircuit className="h-4 w-4" />
+                <span>Mapa Mental</span>
+              </TabsTrigger>
+              <TabsTrigger value="kanban" className="flex items-center gap-1">
+                <Grid2X2 className="h-4 w-4" />
+                <span>Kanban</span>
+              </TabsTrigger>
+              <TabsTrigger value="list" className="flex items-center gap-1">
+                <ListTodo className="h-4 w-4" />
+                <span>Lista</span>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+      </div>
+      
+      {renderContent()}
+    </div>
+  );
+};
+
+export default ProjectManagement;
