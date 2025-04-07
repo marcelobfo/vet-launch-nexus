@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -32,7 +31,10 @@ import {
   Search,
   X,
   AlertCircle,
-  ArrowRight
+  ArrowRight,
+  ArrowUpRight,
+  ArrowDownRight,
+  Circle
 } from 'lucide-react';
 
 import { 
@@ -76,6 +78,21 @@ type KanbanColumn = {
   cards: KanbanCard[];
 };
 
+// Mind map node type
+type MindMapNode = {
+  id: string;
+  type: 'root' | 'task' | 'subtask';
+  title: string;
+  description?: string;
+  parentId?: string;
+  children: string[];
+  status?: 'todo' | 'in-progress' | 'review' | 'done';
+  assignees?: TeamMember[];
+  tag?: TaskTag;
+  position: { x: number; y: number };
+  isUrgent?: boolean;
+};
+
 const ProjectManagement = () => {
   const { toast } = useToast();
   const [viewType, setViewType] = useState<'mindmap' | 'kanban' | 'list'>('kanban');
@@ -84,6 +101,9 @@ const ProjectManagement = () => {
   const [showTaskDetailDialog, setShowTaskDetailDialog] = useState(false);
   const [selectedColumn, setSelectedColumn] = useState<number | null>(null);
   const [selectedTask, setSelectedTask] = useState<KanbanCard | null>(null);
+  const [draggingCard, setDraggingCard] = useState<{ cardId: number, columnId: number } | null>(null);
+  const [dragOverColumn, setDragOverColumn] = useState<number | null>(null);
+  const [editingMindMapNode, setEditingMindMapNode] = useState<MindMapNode | null>(null);
   
   // Form state for new task
   const [newTask, setNewTask] = useState<Partial<KanbanCard>>({
@@ -203,6 +223,97 @@ const ProjectManagement = () => {
           isUrgent: false,
         },
       ]
+    }
+  ]);
+
+  // Mind map nodes
+  const [mindMapNodes, setMindMapNodes] = useState<MindMapNode[]>([
+    {
+      id: 'root',
+      type: 'root',
+      title: 'Lançamento de Produto',
+      description: 'Plano geral para o lançamento do produto',
+      children: ['task1', 'task2', 'task3', 'task4'],
+      position: { x: 400, y: 200 },
+    },
+    {
+      id: 'task1',
+      type: 'task',
+      title: 'Estratégia de Marketing',
+      description: 'Desenvolver plano de marketing para o lançamento',
+      parentId: 'root',
+      children: ['subtask1-1', 'subtask1-2'],
+      tag: availableTags[3],
+      status: 'in-progress',
+      position: { x: 200, y: 100 },
+      assignees: [teamMembers[1]],
+      isUrgent: true,
+    },
+    {
+      id: 'subtask1-1',
+      type: 'subtask',
+      title: 'Redes Sociais',
+      parentId: 'task1',
+      children: [],
+      status: 'todo',
+      position: { x: 50, y: 150 },
+      assignees: [teamMembers[1]],
+    },
+    {
+      id: 'subtask1-2',
+      type: 'subtask',
+      title: 'E-mail Marketing',
+      parentId: 'task1',
+      children: [],
+      status: 'in-progress',
+      position: { x: 50, y: 250 },
+      assignees: [teamMembers[1], teamMembers[2]],
+    },
+    {
+      id: 'task2',
+      type: 'task',
+      title: 'Desenvolvimento de Conteúdo',
+      description: 'Criar o conteúdo para o lançamento',
+      parentId: 'root',
+      children: ['subtask2-1'],
+      tag: availableTags[2],
+      status: 'review',
+      position: { x: 600, y: 100 },
+      assignees: [teamMembers[2]],
+    },
+    {
+      id: 'subtask2-1',
+      type: 'subtask',
+      title: 'Vídeos de Produto',
+      parentId: 'task2',
+      children: [],
+      status: 'done',
+      position: { x: 750, y: 150 },
+      assignees: [teamMembers[0], teamMembers[2]],
+    },
+    {
+      id: 'task3',
+      type: 'task',
+      title: 'Logística de Lançamento',
+      description: 'Coordenar a logística para o dia do lançamento',
+      parentId: 'root',
+      children: [],
+      tag: availableTags[4],
+      status: 'todo',
+      position: { x: 200, y: 350 },
+      assignees: [teamMembers[0], teamMembers[3]],
+    },
+    {
+      id: 'task4',
+      type: 'task',
+      title: 'Análise de Mercado',
+      description: 'Analisar concorrentes e posicionamento',
+      parentId: 'root',
+      children: [],
+      tag: availableTags[5],
+      status: 'done',
+      position: { x: 600, y: 350 },
+      assignees: [teamMembers[3]],
     }
   ]);
 
@@ -404,634 +515,359 @@ const ProjectManagement = () => {
     }));
   };
 
+  // Drag and drop handlers for kanban cards
+  const handleDragStart = (cardId: number, columnId: number) => {
+    setDraggingCard({ cardId, columnId });
+  };
+
+  const handleDragOver = (e: React.DragEvent, columnId: number) => {
+    e.preventDefault();
+    setDragOverColumn(columnId);
+  };
+
+  const handleDrop = (e: React.DragEvent, targetColumnId: number) => {
+    e.preventDefault();
+    if (draggingCard && draggingCard.columnId !== targetColumnId) {
+      handleMoveCard(draggingCard.cardId, draggingCard.columnId, targetColumnId);
+    }
+    setDraggingCard(null);
+    setDragOverColumn(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggingCard(null);
+    setDragOverColumn(null);
+  };
+
+  // Mind map functionality
+  const handleNodeDragStart = (e: React.DragEvent, nodeId: string) => {
+    e.dataTransfer.setData('nodeId', nodeId);
+  };
+
+  const handleNodeDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleNodeDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const nodeId = e.dataTransfer.getData('nodeId');
+    
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    setMindMapNodes(prevNodes => 
+      prevNodes.map(node => 
+        node.id === nodeId 
+          ? { ...node, position: { x, y } }
+          : node
+      )
+    );
+    
+    toast({
+      title: "Node moved",
+      description: "Node position updated successfully."
+    });
+  };
+
+  const handleMindMapNodeClick = (node: MindMapNode) => {
+    setEditingMindMapNode(node);
+  };
+
+  const updateMindMapNode = (updatedNode: MindMapNode) => {
+    setMindMapNodes(prevNodes => 
+      prevNodes.map(node => 
+        node.id === updatedNode.id 
+          ? updatedNode
+          : node
+      )
+    );
+    setEditingMindMapNode(null);
+    
+    toast({
+      title: "Node updated",
+      description: "Mind map node updated successfully."
+    });
+  };
+
+  const addMindMapNode = (parentId: string) => {
+    const newNodeId = `node-${Date.now()}`;
+    const parentNode = mindMapNodes.find(node => node.id === parentId);
+    
+    if (!parentNode) return;
+    
+    // Calculate position relative to parent
+    const newNodePosition = {
+      x: parentNode.position.x + 150,
+      y: parentNode.position.y + 50
+    };
+    
+    const newNode: MindMapNode = {
+      id: newNodeId,
+      type: 'subtask',
+      title: 'Nova Tarefa',
+      parentId: parentId,
+      children: [],
+      status: 'todo',
+      position: newNodePosition
+    };
+    
+    // Update parent node to include new child
+    const updatedParent = {
+      ...parentNode,
+      children: [...parentNode.children, newNodeId]
+    };
+    
+    setMindMapNodes(prevNodes => [
+      ...prevNodes.map(node => node.id === parentId ? updatedParent : node),
+      newNode
+    ]);
+    
+    setEditingMindMapNode(newNode);
+    
+    toast({
+      title: "Node added",
+      description: "New mind map node added successfully."
+    });
+  };
+
+  const deleteMindMapNode = (nodeId: string) => {
+    // Find the node and its parent
+    const nodeToDelete = mindMapNodes.find(node => node.id === nodeId);
+    if (!nodeToDelete || nodeToDelete.type === 'root') return; // Cannot delete root
+    
+    const parentNode = nodeToDelete.parentId 
+      ? mindMapNodes.find(node => node.id === nodeToDelete.parentId)
+      : null;
+    
+    // Update parent's children list
+    let updatedNodes = mindMapNodes;
+    if (parentNode) {
+      const updatedParent = {
+        ...parentNode,
+        children: parentNode.children.filter(id => id !== nodeId)
+      };
+      updatedNodes = updatedNodes.map(node => 
+        node.id === parentNode.id ? updatedParent : node
+      );
+    }
+    
+    // Remove the node and its children recursively
+    const nodesToRemove = new Set<string>();
+    
+    const collectNodesToRemove = (id: string) => {
+      nodesToRemove.add(id);
+      const node = mindMapNodes.find(n => n.id === id);
+      if (node && node.children.length > 0) {
+        node.children.forEach(childId => collectNodesToRemove(childId));
+      }
+    };
+    
+    collectNodesToRemove(nodeId);
+    
+    setMindMapNodes(updatedNodes.filter(node => !nodesToRemove.has(node.id)));
+    setEditingMindMapNode(null);
+    
+    toast({
+      title: "Node deleted",
+      description: "Mind map node and its children removed successfully."
+    });
+  };
+
+  // Utility function to get status color
+  const getStatusColor = (status?: 'todo' | 'in-progress' | 'review' | 'done') => {
+    switch (status) {
+      case 'todo': return 'border-slate-400';
+      case 'in-progress': return 'border-blue-500';
+      case 'review': return 'border-yellow-500';
+      case 'done': return 'border-green-500';
+      default: return 'border-gray-400';
+    }
+  };
+
+  // Render lines between connected nodes
+  const renderMindMapConnections = useCallback(() => {
+    return mindMapNodes.map(node => {
+      if (node.children.length === 0) return null;
+      
+      return node.children.map(childId => {
+        const childNode = mindMapNodes.find(n => n.id === childId);
+        if (!childNode) return null;
+        
+        const startX = node.position.x + 75; // Approximate center of parent node
+        const startY = node.position.y + 35;
+        const endX = childNode.position.x + 75;
+        const endY = childNode.position.y + 35;
+        
+        // Calculate path
+        const path = `M${startX},${startY} C${(startX + endX) / 2},${startY} ${(startX + endX) / 2},${endY} ${endX},${endY}`;
+        
+        return (
+          <svg key={`${node.id}-${childId}`} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+            <path 
+              d={path} 
+              stroke="#666" 
+              strokeWidth="2" 
+              fill="none" 
+              strokeDasharray={childNode.type === 'subtask' ? "5,5" : "none"}
+            />
+          </svg>
+        );
+      });
+    });
+  }, [mindMapNodes]);
+
   // Render different views based on selected type
   const renderContent = () => {
     switch (viewType) {
       case 'mindmap':
         return (
-          <div className="p-4 min-h-[400px] flex items-center justify-center bg-vet-dark/50 rounded-lg border border-gray-800">
-            <div className="text-center space-y-3">
-              <BrainCircuit className="h-16 w-16 mx-auto text-vet-primary/60" />
-              <p className="text-gray-400">Visualização de Mapa Mental requer integração com backend.</p>
-              <Button 
-                variant="outline" 
-                size="sm"
-                className="bg-vet-primary/20 hover:bg-vet-primary/30"
-              >
-                Ver Exemplo de Mapa Mental
-              </Button>
-            </div>
-          </div>
-        );
-        
-      case 'kanban':
-        return (
-          <>
-            <div className="flex items-center justify-between mb-4">
+          <div className="p-4 relative">
+            <div className="mb-4 flex justify-between items-center">
               <div className="relative w-64">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Buscar tarefas..."
+                  placeholder="Buscar no mapa mental..."
                   className="pl-8"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
                 />
-                {searchQuery && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-1 top-1.5 h-6 w-6"
-                    onClick={() => setSearchQuery("")}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                )}
               </div>
               
               <div className="flex items-center gap-2">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm" className="gap-1">
-                      <Bell className="h-4 w-4" />
-                      <span className="hidden sm:inline">Notificações</span>
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-80 p-0" align="end">
-                    <div className="p-2 font-medium border-b border-gray-800">
-                      Notificações
-                    </div>
-                    <div className="divide-y divide-gray-800 max-h-80 overflow-auto">
-                      <div className="p-3 flex gap-3 items-start hover:bg-gray-800/30">
-                        <div className="rounded-full bg-yellow-500/20 p-1.5">
-                          <AlertCircle className="h-4 w-4 text-yellow-500" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">Nova tarefa urgente</p>
-                          <p className="text-xs text-gray-400">Pedro adicionou uma tarefa urgente à coluna Revisão</p>
-                          <p className="text-xs text-gray-500 mt-1">2 horas atrás</p>
-                        </div>
-                      </div>
-                      <div className="p-3 flex gap-3 items-start hover:bg-gray-800/30">
-                        <div className="rounded-full bg-green-500/20 p-1.5">
-                          <ArrowRight className="h-4 w-4 text-green-500" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">Tarefa movida para Concluído</p>
-                          <p className="text-xs text-gray-400">Ana moveu "Definir Datas de Lançamento" para Concluído</p>
-                          <p className="text-xs text-gray-500 mt-1">1 dia atrás</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="p-2 border-t border-gray-800 text-center">
-                      <Button variant="ghost" size="sm" className="text-xs w-full text-gray-400 hover:text-white">
-                        Ver todas as notificações
-                      </Button>
-                    </div>
-                  </PopoverContent>
-                </Popover>
+                <Button variant="outline" size="sm" className="gap-1">
+                  <Plus className="h-4 w-4" />
+                  <span>Novo Projeto</span>
+                </Button>
                 
                 <Select defaultValue="all">
                   <SelectTrigger className="w-[130px]">
                     <SelectValue placeholder="Filtrar por" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
+                    <SelectItem value="all">Todos</SelectItem>
                     <SelectItem value="urgent">Urgentes</SelectItem>
-                    <SelectItem value="mine">Minhas tarefas</SelectItem>
-                    <SelectItem value="upcoming">Próximas</SelectItem>
+                    <SelectItem value="mine">Meus projetos</SelectItem>
+                    <SelectItem value="upcoming">Próximos</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              {getFilteredKanbanColumns().map((column) => (
-                <div key={column.id} className={`bg-card rounded-lg border border-gray-800 p-3 ${column.color}`}>
-                  <h3 className="font-medium mb-3 flex items-center justify-between">
-                    <span>{column.title}</span>
-                    <span className="text-xs text-gray-400 bg-gray-800/50 px-2 py-0.5 rounded">
-                      {column.cards.length}
-                    </span>
-                  </h3>
-                  <div className="space-y-2">
-                    {column.cards.map(card => (
-                      <div 
-                        key={card.id} 
-                        className={`bg-vet-dark p-3 rounded-md border ${card.isUrgent ? 'border-red-500' : 'border-gray-800'} cursor-pointer hover:border-gray-700 transition-colors`}
-                        onClick={() => handleViewTaskDetails(card)}
-                      >
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="text-sm font-medium">{card.title}</div>
-                          {card.isUrgent && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-900/30 text-red-400">
-                              <AlertCircle className="h-3 w-3 mr-1" />
-                              Urgente
-                            </span>
-                          )}
-                        </div>
-                        
-                        {card.description && (
-                          <p className="text-xs text-gray-400 mb-2 line-clamp-2">{card.description}</p>
-                        )}
-                        
-                        <div className="flex justify-between items-center">
-                          <span className={`text-xs ${card.tag.color} bg-opacity-20 text-opacity-90 px-2 py-0.5 rounded-full`}>
-                            {card.tag.name}
-                          </span>
-                          
-                          <div className="flex items-center">
-                            {card.dueDate && (
-                              <span className="text-xs text-gray-400 mr-2 flex items-center">
-                                <Clock className="h-3 w-3 mr-1" />
-                                {new Date(card.dueDate).toLocaleDateString('pt-BR')}
-                              </span>
-                            )}
-                            
-                            {card.assignees.length > 0 && (
-                              <div className="flex -space-x-2">
-                                {card.assignees.slice(0, 2).map((assignee) => (
-                                  <Avatar key={assignee.id} className="h-6 w-6 border border-gray-800">
-                                    {assignee.avatar ? (
-                                      <AvatarImage src={assignee.avatar} alt={assignee.name} />
-                                    ) : (
-                                      <AvatarFallback>{assignee.name.charAt(0)}</AvatarFallback>
-                                    )}
-                                  </Avatar>
-                                ))}
-                                {card.assignees.length > 2 && (
-                                  <div className="h-6 w-6 rounded-full bg-gray-700 flex items-center justify-center text-xs text-white border border-gray-800">
-                                    +{card.assignees.length - 2}
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+            <div 
+              className="min-h-[600px] bg-vet-dark/30 border border-gray-800 rounded-lg relative"
+              onDragOver={handleNodeDragOver}
+              onDrop={handleNodeDrop}
+            >
+              {/* Render connections between nodes */}
+              {renderMindMapConnections()}
+              
+              {/* Render nodes */}
+              {mindMapNodes.map(node => (
+                <div
+                  key={node.id}
+                  className={`absolute p-3 rounded-lg shadow-md ${
+                    node.type === 'root' 
+                      ? 'bg-vet-primary/20 border-2 border-vet-primary/50 w-[250px]' 
+                      : node.type === 'task'
+                        ? `bg-card border-l-4 ${getStatusColor(node.status)} w-[200px]`
+                        : `bg-gray-800/70 border border-gray-700 w-[150px]`
+                  } cursor-move`}
+                  style={{
+                    left: `${node.position.x}px`,
+                    top: `${node.position.y}px`,
+                    zIndex: node.type === 'root' ? 10 : 5
+                  }}
+                  draggable
+                  onDragStart={(e) => handleNodeDragStart(e, node.id)}
+                  onClick={() => handleMindMapNodeClick(node)}
+                >
+                  <div className="flex justify-between items-start mb-1">
+                    <div className={`text-${node.type === 'root' ? 'base font-bold' : 'sm font-medium'}`}>
+                      {node.title}
+                    </div>
                     
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="w-full justify-start text-gray-400"
-                      onClick={() => handleOpenNewCardDialog(column.id)}
-                    >
-                      <Plus className="h-4 w-4 mr-1" /> Adicionar cartão
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-            
-            {/* Dialog for task details */}
-            <Dialog open={showTaskDetailDialog} onOpenChange={setShowTaskDetailDialog}>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <div className="flex items-center justify-between">
-                    <DialogTitle className="text-xl">{selectedTask?.title}</DialogTitle>
-                    {selectedTask?.isUrgent && (
-                      <Badge variant="outline" className="bg-red-900/30 text-red-400 border-red-500">
+                    {node.isUrgent && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-900/30 text-red-400">
                         <AlertCircle className="h-3 w-3 mr-1" />
                         Urgente
-                      </Badge>
+                      </span>
                     )}
                   </div>
-                </DialogHeader>
-                
-                <div className="space-y-4">
-                  {selectedTask?.description && (
-                    <div>
-                      <Label className="text-gray-400 text-sm">Descrição</Label>
-                      <p className="mt-1 text-sm">{selectedTask.description}</p>
+                  
+                  {node.description && (
+                    <p className="text-xs text-gray-400 mb-2 line-clamp-2">{node.description}</p>
+                  )}
+                  
+                  <div className="flex justify-between">
+                    {node.tag && (
+                      <span className={`text-xs ${node.tag.color} bg-opacity-20 text-opacity-90 px-2 py-0.5 rounded-full`}>
+                        {node.tag.name}
+                      </span>
+                    )}
+                    
+                    {node.status && node.type !== 'root' && (
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        node.status === 'todo' ? 'bg-slate-500/20 text-slate-300' :
+                        node.status === 'in-progress' ? 'bg-blue-500/20 text-blue-300' :
+                        node.status === 'review' ? 'bg-yellow-500/20 text-yellow-300' :
+                        'bg-green-500/20 text-green-300'
+                      }`}>
+                        {node.status === 'todo' ? 'A Fazer' :
+                        node.status === 'in-progress' ? 'Em Progresso' :
+                        node.status === 'review' ? 'Revisão' :
+                        'Concluído'}
+                      </span>
+                    )}
+                  </div>
+                  
+                  {node.assignees && node.assignees.length > 0 && (
+                    <div className="flex -space-x-2 mt-2">
+                      {node.assignees.slice(0, 3).map((assignee) => (
+                        <Avatar key={assignee.id} className="h-6 w-6 border border-gray-800">
+                          {assignee.avatar ? (
+                            <AvatarImage src={assignee.avatar} alt={assignee.name} />
+                          ) : (
+                            <AvatarFallback>{assignee.name.charAt(0)}</AvatarFallback>
+                          )}
+                        </Avatar>
+                      ))}
+                      {node.assignees.length > 3 && (
+                        <div className="h-6 w-6 rounded-full bg-gray-700 flex items-center justify-center text-xs text-white border border-gray-800">
+                          +{node.assignees.length - 3}
+                        </div>
+                      )}
                     </div>
                   )}
                   
-                  <div className="flex items-center gap-4">
-                    <div>
-                      <Label className="text-gray-400 text-sm">Categoria</Label>
-                      <div className="mt-1">
-                        <Badge className={`${selectedTask?.tag.color} bg-opacity-20`}>
-                          {selectedTask?.tag.name}
-                        </Badge>
-                      </div>
-                    </div>
-                    
-                    {selectedTask?.dueDate && (
-                      <div>
-                        <Label className="text-gray-400 text-sm">Data de entrega</Label>
-                        <div className="mt-1 flex items-center text-sm">
-                          <CalendarDays className="h-4 w-4 mr-1 text-gray-400" />
-                          {new Date(selectedTask.dueDate).toLocaleDateString('pt-BR')}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div>
-                    <Label className="text-gray-400 text-sm">Responsáveis</Label>
-                    <div className="mt-1 flex flex-wrap gap-2">
-                      {selectedTask?.assignees.map(assignee => (
-                        <div 
-                          key={assignee.id} 
-                          className="flex items-center gap-2 bg-gray-800/50 text-sm rounded-md px-2 py-1"
-                        >
-                          <Avatar className="h-6 w-6">
-                            {assignee.avatar ? (
-                              <AvatarImage src={assignee.avatar} alt={assignee.name} />
-                            ) : (
-                              <AvatarFallback>{assignee.name.charAt(0)}</AvatarFallback>
-                            )}
-                          </Avatar>
-                          <span>{assignee.name}</span>
-                        </div>
-                      ))}
-                      {(!selectedTask?.assignees || selectedTask.assignees.length === 0) && (
-                        <span className="text-sm text-gray-400">Nenhum responsável designado</span>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="border-t border-gray-800 pt-4">
-                    <Label className="text-gray-400 text-sm">Mover para</Label>
-                    <Select 
-                      defaultValue={kanbanColumns.find(col => 
-                        col.cards.some(card => card.id === selectedTask?.id)
-                      )?.id.toString()}
-                      onValueChange={(value) => {
-                        if (selectedTask) {
-                          const sourceColumnId = kanbanColumns.find(col => 
-                            col.cards.some(card => card.id === selectedTask.id)
-                          )?.id;
-                          
-                          if (sourceColumnId && sourceColumnId !== parseInt(value)) {
-                            handleMoveCard(selectedTask.id, sourceColumnId, parseInt(value));
-                            setShowTaskDetailDialog(false);
-                          }
-                        }
+                  {node.type === 'root' && (
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="mt-2 w-full text-xs text-gray-400 hover:text-white hover:bg-gray-800/50"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        addMindMapNode(node.id);
                       }}
                     >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione a coluna" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {kanbanColumns.map((column) => (
-                          <SelectItem key={column.id} value={column.id.toString()}>
-                            {column.title}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                
-                <DialogFooter className="flex justify-between items-center">
-                  <Button 
-                    variant="destructive" 
-                    size="sm"
-                    onClick={() => {
-                      if (selectedTask) {
-                        const columnId = kanbanColumns.find(col => 
-                          col.cards.some(card => card.id === selectedTask.id)
-                        )?.id;
-                        
-                        if (columnId) {
-                          handleDeleteTask(selectedTask.id, columnId);
-                        }
-                      }
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4 mr-1" />
-                    Excluir
-                  </Button>
+                      <Plus className="h-3 w-3 mr-1" /> Adicionar Tarefa
+                    </Button>
+                  )}
                   
-                  <Button onClick={() => setShowTaskDetailDialog(false)}>
-                    <Edit className="h-4 w-4 mr-1" />
-                    Editar
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-            
-            {/* Dialog for new card */}
-            <Dialog open={showNewCardDialog} onOpenChange={setShowNewCardDialog}>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Adicionar Nova Tarefa</DialogTitle>
-                  <DialogDescription>
-                    Adicione uma nova tarefa à coluna "{kanbanColumns.find(col => col.id === selectedColumn)?.title}".
-                  </DialogDescription>
-                </DialogHeader>
-                
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="title">Título</Label>
-                    <Input 
-                      id="title" 
-                      value={newTask.title || ''}
-                      onChange={(e) => setNewTask({...newTask, title: e.target.value})}
-                      placeholder="Título da tarefa"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Descrição</Label>
-                    <Textarea 
-                      id="description" 
-                      value={newTask.description || ''}
-                      onChange={(e) => setNewTask({...newTask, description: e.target.value})}
-                      placeholder="Descreva a tarefa"
-                      rows={3}
-                    />
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="tag">Categoria</Label>
-                      <Select 
-                        onValueChange={(value) => {
-                          const tag = availableTags.find(t => t.id === parseInt(value));
-                          if (tag) setNewTask({...newTask, tag});
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableTags.map((tag) => (
-                            <SelectItem key={tag.id} value={tag.id.toString()}>
-                              <div className="flex items-center">
-                                <div className={`w-3 h-3 rounded-full ${tag.color} mr-2`}></div>
-                                {tag.name}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="dueDate">Data de Entrega</Label>
-                      <Input 
-                        id="dueDate" 
-                        type="date"
-                        value={newTask.dueDate || ''}
-                        onChange={(e) => setNewTask({...newTask, dueDate: e.target.value})}
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label>Responsáveis</Label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" size="sm">
-                            <Plus className="h-4 w-4 mr-1" />
-                            Adicionar
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-60 p-0">
-                          <div className="p-2 font-medium border-b border-gray-800">
-                            Membros da Equipe
-                          </div>
-                          <div className="max-h-60 overflow-auto">
-                            {teamMembers.map(member => (
-                              <div 
-                                key={member.id}
-                                className="p-2 flex items-center gap-2 hover:bg-gray-800/50 cursor-pointer"
-                                onClick={() => {
-                                  handleAddTeamMember(member);
-                                }}
-                              >
-                                <Avatar className="h-8 w-8">
-                                  {member.avatar ? (
-                                    <AvatarImage src={member.avatar} alt={member.name} />
-                                  ) : (
-                                    <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
-                                  )}
-                                </Avatar>
-                                <div>
-                                  <p className="text-sm font-medium">{member.name}</p>
-                                  <p className="text-xs text-gray-400">{member.role}</p>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    
-                    <div className="flex flex-wrap gap-2 min-h-10 p-2 border border-gray-800 rounded-md">
-                      {newTask.assignees && newTask.assignees.length > 0 ? (
-                        newTask.assignees.map(assignee => (
-                          <div 
-                            key={assignee.id} 
-                            className="flex items-center gap-1 bg-gray-800 text-sm rounded-md px-2 py-1"
-                          >
-                            <Avatar className="h-5 w-5">
-                              {assignee.avatar ? (
-                                <AvatarImage src={assignee.avatar} alt={assignee.name} />
-                              ) : (
-                                <AvatarFallback>{assignee.name.charAt(0)}</AvatarFallback>
-                              )}
-                            </Avatar>
-                            <span>{assignee.name}</span>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-4 w-4 ml-1 text-gray-400 hover:text-white p-0"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleRemoveTeamMember(assignee.id);
-                              }}
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        ))
-                      ) : (
-                        <span className="text-sm text-gray-500">Clique em "Adicionar" para selecionar responsáveis</span>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="urgente" 
-                      checked={newTask.isUrgent}
-                      onCheckedChange={(checked) => setNewTask({...newTask, isUrgent: checked as boolean})}
-                    />
-                    <label
-                      htmlFor="urgente"
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  {node.type === 'task' && (
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="mt-2 w-full text-xs text-gray-400 hover:text-white hover:bg-gray-800/50"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        addMindMapNode(node.id);
+                      }}
                     >
-                      Marcar como urgente
-                    </label>
-                  </div>
+                      <Plus className="h-3 w-3 mr-1" /> Adicionar Subtarefa
+                    </Button>
+                  )}
                 </div>
-                
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setShowNewCardDialog(false)}>Cancelar</Button>
-                  <Button onClick={handleAddTask}>Adicionar</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </>
-        );
-
-      case 'list':
-        return (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between mb-4">
-              <div className="relative w-64">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Buscar projetos..."
-                  className="pl-8"
-                />
-              </div>
-              
-              <Button className="gap-1">
-                <Plus className="h-4 w-4" />
-                <span>Novo Projeto</span>
-              </Button>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {projectCards.map(card => (
-                <Card key={card.id} className="bg-card">
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <CardTitle className="text-lg">{card.title}</CardTitle>
-                        <CardDescription>
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${card.tag.color} bg-opacity-20 mt-1`}>
-                            {card.tag.name}
-                          </span>
-                          <span className="ml-2 text-gray-400">
-                            {card.status}
-                          </span>
-                        </CardDescription>
-                      </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
-                            <Edit className="h-4 w-4 mr-2" />
-                            Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <CheckSquare className="h-4 w-4 mr-2" />
-                            Marcar como concluído
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-red-500">
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Remover
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pb-2">
-                    <div className="space-y-3">
-                      <div className="flex justify-between text-sm">
-                        <div className="flex items-center gap-2">
-                          <CalendarDays className="h-4 w-4 text-gray-400" />
-                          <span>{new Date(card.dueDate).toLocaleDateString('pt-BR')}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <ListTodo className="h-4 w-4 text-gray-400" />
-                          <span>{card.completed}/{card.tasks} tarefas</span>
-                        </div>
-                      </div>
-                      
-                      <div className="w-full bg-gray-800 rounded-full h-2">
-                        <div 
-                          className={`${card.progress === 100 ? 'bg-green-500' : 'bg-vet-primary'} h-2 rounded-full`}
-                          style={{ width: `${card.progress}%` }}
-                        ></div>
-                      </div>
-                      
-                      {card.isUrgent && (
-                        <div className="flex items-center gap-1 text-red-400 text-xs">
-                          <AlertCircle className="h-3.5 w-3.5" />
-                          <span>Prioridade alta</span>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                  <CardFooter className="pt-2 border-t border-gray-800">
-                    <div className="flex justify-between items-center w-full">
-                      <div className="flex -space-x-2">
-                        {card.assignees.slice(0, 3).map((assignee) => (
-                          <Avatar key={assignee.id} className="h-6 w-6 border border-gray-800">
-                            {assignee.avatar ? (
-                              <AvatarImage src={assignee.avatar} alt={assignee.name} />
-                            ) : (
-                              <AvatarFallback>{assignee.name.charAt(0)}</AvatarFallback>
-                            )}
-                          </Avatar>
-                        ))}
-                        {card.assignees.length > 3 && (
-                          <div className="h-6 w-6 rounded-full bg-gray-700 flex items-center justify-center text-xs text-white border border-gray-800">
-                            +{card.assignees.length - 3}
-                          </div>
-                        )}
-                      </div>
-                      <Button variant="ghost" size="sm" className="gap-1">
-                        <Grid2X2 className="h-3.5 w-3.5" />
-                        <span className="text-xs">Ver Kanban</span>
-                      </Button>
-                    </div>
-                  </CardFooter>
-                </Card>
               ))}
             </div>
-          </div>
-        );
-        
-      default:
-        return (
-          <div className="p-4 flex items-center justify-center">
-            <p>Selecione uma visualização</p>
-          </div>
-        );
-    }
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Gerenciamento de Projetos</h2>
-        
-        <div className="flex items-center gap-2">
-          <Tabs defaultValue={viewType} onValueChange={(v) => setViewType(v as 'mindmap' | 'kanban' | 'list')}>
-            <TabsList className="grid grid-cols-3 w-[300px]">
-              <TabsTrigger value="mindmap" className="flex items-center gap-1">
-                <BrainCircuit className="h-4 w-4" />
-                <span>Mapa Mental</span>
-              </TabsTrigger>
-              <TabsTrigger value="kanban" className="flex items-center gap-1">
-                <Grid2X2 className="h-4 w-4" />
-                <span>Kanban</span>
-              </TabsTrigger>
-              <TabsTrigger value="list" className="flex items-center gap-1">
-                <ListTodo className="h-4 w-4" />
-                <span>Lista</span>
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
-      </div>
-      
-      {renderContent()}
-    </div>
-  );
-};
-
-export default ProjectManagement;
+            
+            {/* Dialog for editing mind map node */}
+            <Dialog open={!!editingMindMapNode} on

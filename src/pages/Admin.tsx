@@ -16,8 +16,9 @@ import {
   Database,
   Users,
   Layout,
-  BrainCircuit
-} from "lucide-react";
+  BrainCircuit,
+  UserPlus
+} from 'lucide-react';
 
 // Import sidebar components
 import {
@@ -51,6 +52,7 @@ import DatabaseConfig from "@/components/admin/DatabaseConfig";
 import ProjectManagement from "@/components/admin/ProjectManagement";
 import FacebookApiConfig from "@/components/admin/FacebookApiConfig";
 import CompanyManagement from "@/components/admin/CompanyManagement";
+import UserManagement from "@/components/admin/UserManagement";
 
 // Import utilities
 import { calculateCampaignPerformance, generateROIProjectionData } from "@/utils/campaignCalculator";
@@ -301,6 +303,8 @@ const Admin = () => {
         return <FacebookApiConfig />;
       case "empresas":
         return <CompanyManagement />;
+      case "usuarios":
+        return <UserManagement />;
       default:
         return (
           <Card className="bg-card">
@@ -393,6 +397,16 @@ const Admin = () => {
               <SidebarGroup>
                 <SidebarGroupLabel>Gerenciamento</SidebarGroupLabel>
                 <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton 
+                      onClick={() => setActiveSection("usuarios")} 
+                      isActive={activeSection === "usuarios"}
+                      tooltip="Usuários"
+                    >
+                      <UserPlus className="h-4 w-4" />
+                      <span>Usuários</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
                   <SidebarMenuItem>
                     <SidebarMenuButton 
                       onClick={() => setActiveSection("projetos")} 
