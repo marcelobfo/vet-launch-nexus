@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -870,4 +871,779 @@ const ProjectManagement = () => {
             </div>
             
             {/* Dialog for editing mind map node */}
-            <Dialog open={!!editingMindMapNode} on
+            <Dialog open={!!editingMindMapNode} onOpenChange={(open) => !open && setEditingMindMapNode(null)}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>
+                    {editingMindMapNode?.type === 'root' ? 'Editar Projeto' : 
+                     editingMindMapNode?.type === 'task' ? 'Editar Tarefa' : 'Editar Subtarefa'}
+                  </DialogTitle>
+                </DialogHeader>
+                
+                {editingMindMapNode && (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="nodeTitle">Título</Label>
+                      <Input 
+                        id="nodeTitle" 
+                        value={editingMindMapNode.title}
+                        onChange={(e) => setEditingMindMapNode({
+                          ...editingMindMapNode,
+                          title: e.target.value
+                        })}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="nodeDescription">Descrição</Label>
+                      <Textarea 
+                        id="nodeDescription" 
+                        value={editingMindMapNode.description || ''}
+                        onChange={(e) => setEditingMindMapNode({
+                          ...editingMindMapNode,
+                          description: e.target.value
+                        })}
+                        rows={3}
+                      />
+                    </div>
+                    
+                    {editingMindMapNode.type !== 'root' && (
+                      <>
+                        <div className="space-y-2">
+                          <Label htmlFor="nodeStatus">Status</Label>
+                          <Select 
+                            value={editingMindMapNode.status}
+                            onValueChange={(value: 'todo' | 'in-progress' | 'review' | 'done') => 
+                              setEditingMindMapNode({
+                                ...editingMindMapNode,
+                                status: value
+                              })
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione o status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="todo">A Fazer</SelectItem>
+                              <SelectItem value="in-progress">Em Progresso</SelectItem>
+                              <SelectItem value="review">Revisão</SelectItem>
+                              <SelectItem value="done">Concluído</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="nodeTag">Categoria</Label>
+                          <Select 
+                            value={editingMindMapNode.tag?.id.toString()}
+                            onValueChange={(value) => {
+                              const tag = availableTags.find(t => t.id === parseInt(value));
+                              setEditingMindMapNode({
+                                ...editingMindMapNode,
+                                tag
+                              });
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione uma categoria" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availableTags.map(tag => (
+                                <SelectItem key={tag.id} value={tag.id.toString()}>
+                                  <div className="flex items-center">
+                                    <div className={`w-2 h-2 rounded-full ${tag.color} mr-2`}></div>
+                                    {tag.name}
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
+                          <Checkbox 
+                            id="nodeUrgent" 
+                            checked={editingMindMapNode.isUrgent || false}
+                            onCheckedChange={(checked) => 
+                              setEditingMindMapNode({
+                                ...editingMindMapNode,
+                                isUrgent: checked as boolean
+                              })
+                            }
+                          />
+                          <Label htmlFor="nodeUrgent">Marcar como urgente</Label>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+                
+                <DialogFooter className="flex justify-between items-center">
+                  {editingMindMapNode && editingMindMapNode.type !== 'root' && (
+                    <Button 
+                      variant="destructive" 
+                      size="sm"
+                      onClick={() => {
+                        if (editingMindMapNode) {
+                          deleteMindMapNode(editingMindMapNode.id);
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Excluir
+                    </Button>
+                  )}
+                  
+                  <Button 
+                    onClick={() => {
+                      if (editingMindMapNode) {
+                        updateMindMapNode(editingMindMapNode);
+                      }
+                    }}
+                  >
+                    Salvar Alterações
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        );
+        
+      case 'kanban':
+        return (
+          <>
+            <div className="flex items-center justify-between mb-4">
+              <div className="relative w-64">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Buscar tarefas..."
+                  className="pl-8"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                {searchQuery && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-1 top-1.5 h-6 w-6"
+                    onClick={() => setSearchQuery("")}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-1">
+                      <Bell className="h-4 w-4" />
+                      <span className="hidden sm:inline">Notificações</span>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80 p-0" align="end">
+                    <div className="p-2 font-medium border-b border-gray-800">
+                      Notificações
+                    </div>
+                    <div className="divide-y divide-gray-800 max-h-80 overflow-auto">
+                      <div className="p-3 flex gap-3 items-start hover:bg-gray-800/30">
+                        <div className="rounded-full bg-yellow-500/20 p-1.5">
+                          <AlertCircle className="h-4 w-4 text-yellow-500" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">Nova tarefa urgente</p>
+                          <p className="text-xs text-gray-400">Pedro adicionou uma tarefa urgente à coluna Revisão</p>
+                          <p className="text-xs text-gray-500 mt-1">2 horas atrás</p>
+                        </div>
+                      </div>
+                      <div className="p-3 flex gap-3 items-start hover:bg-gray-800/30">
+                        <div className="rounded-full bg-green-500/20 p-1.5">
+                          <ArrowRight className="h-4 w-4 text-green-500" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">Tarefa movida para Concluído</p>
+                          <p className="text-xs text-gray-400">Ana moveu "Definir Datas de Lançamento" para Concluído</p>
+                          <p className="text-xs text-gray-500 mt-1">1 dia atrás</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-2 border-t border-gray-800 text-center">
+                      <Button variant="ghost" size="sm" className="text-xs w-full text-gray-400 hover:text-white">
+                        Ver todas as notificações
+                      </Button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                
+                <Select defaultValue="all">
+                  <SelectTrigger className="w-[130px]">
+                    <SelectValue placeholder="Filtrar por" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    <SelectItem value="urgent">Urgentes</SelectItem>
+                    <SelectItem value="mine">Minhas tarefas</SelectItem>
+                    <SelectItem value="upcoming">Próximas</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {getFilteredKanbanColumns().map((column) => (
+                <div 
+                  key={column.id} 
+                  className={`bg-card rounded-lg border border-gray-800 p-3 ${column.color} ${
+                    dragOverColumn === column.id ? 'border-dashed border-blue-500' : ''
+                  }`}
+                  onDragOver={(e) => handleDragOver(e, column.id)}
+                  onDrop={(e) => handleDrop(e, column.id)}
+                >
+                  <h3 className="font-medium mb-3 flex items-center justify-between">
+                    <span>{column.title}</span>
+                    <span className="text-xs text-gray-400 bg-gray-800/50 px-2 py-0.5 rounded">
+                      {column.cards.length}
+                    </span>
+                  </h3>
+                  <div className="space-y-2">
+                    {column.cards.map(card => (
+                      <div 
+                        key={card.id} 
+                        className={`bg-vet-dark p-3 rounded-md border ${card.isUrgent ? 'border-red-500' : 'border-gray-800'} cursor-pointer hover:border-gray-700 transition-colors`}
+                        onClick={() => handleViewTaskDetails(card)}
+                        draggable
+                        onDragStart={() => handleDragStart(card.id, column.id)}
+                        onDragEnd={handleDragEnd}
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="text-sm font-medium">{card.title}</div>
+                          {card.isUrgent && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-900/30 text-red-400">
+                              <AlertCircle className="h-3 w-3 mr-1" />
+                              Urgente
+                            </span>
+                          )}
+                        </div>
+                        
+                        {card.description && (
+                          <p className="text-xs text-gray-400 mb-2 line-clamp-2">{card.description}</p>
+                        )}
+                        
+                        <div className="flex justify-between items-center">
+                          <span className={`text-xs ${card.tag.color} bg-opacity-20 text-opacity-90 px-2 py-0.5 rounded-full`}>
+                            {card.tag.name}
+                          </span>
+                          
+                          <div className="flex items-center">
+                            {card.dueDate && (
+                              <span className="text-xs text-gray-400 mr-2 flex items-center">
+                                <Clock className="h-3 w-3 mr-1" />
+                                {new Date(card.dueDate).toLocaleDateString('pt-BR')}
+                              </span>
+                            )}
+                            
+                            {card.assignees.length > 0 && (
+                              <div className="flex -space-x-2">
+                                {card.assignees.slice(0, 2).map((assignee) => (
+                                  <Avatar key={assignee.id} className="h-6 w-6 border border-gray-800">
+                                    {assignee.avatar ? (
+                                      <AvatarImage src={assignee.avatar} alt={assignee.name} />
+                                    ) : (
+                                      <AvatarFallback>{assignee.name.charAt(0)}</AvatarFallback>
+                                    )}
+                                  </Avatar>
+                                ))}
+                                {card.assignees.length > 2 && (
+                                  <div className="h-6 w-6 rounded-full bg-gray-700 flex items-center justify-center text-xs text-white border border-gray-800">
+                                    +{card.assignees.length - 2}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="w-full justify-start text-gray-400"
+                      onClick={() => handleOpenNewCardDialog(column.id)}
+                    >
+                      <Plus className="h-4 w-4 mr-1" /> Adicionar cartão
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            {/* Dialog for task details */}
+            <Dialog open={showTaskDetailDialog} onOpenChange={setShowTaskDetailDialog}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <div className="flex items-center justify-between">
+                    <DialogTitle className="text-xl">{selectedTask?.title}</DialogTitle>
+                    {selectedTask?.isUrgent && (
+                      <Badge variant="outline" className="bg-red-900/30 text-red-400 border-red-500">
+                        <AlertCircle className="h-3 w-3 mr-1" />
+                        Urgente
+                      </Badge>
+                    )}
+                  </div>
+                </DialogHeader>
+                
+                <div className="space-y-4">
+                  {selectedTask?.description && (
+                    <div>
+                      <Label className="text-gray-400 text-sm">Descrição</Label>
+                      <p className="mt-1 text-sm">{selectedTask.description}</p>
+                    </div>
+                  )}
+                  
+                  <div className="flex items-center gap-4">
+                    <div>
+                      <Label className="text-gray-400 text-sm">Categoria</Label>
+                      <div className="mt-1">
+                        <Badge className={`${selectedTask?.tag.color} bg-opacity-20`}>
+                          {selectedTask?.tag.name}
+                        </Badge>
+                      </div>
+                    </div>
+                    
+                    {selectedTask?.dueDate && (
+                      <div>
+                        <Label className="text-gray-400 text-sm">Data de entrega</Label>
+                        <div className="mt-1 flex items-center text-sm">
+                          <CalendarDays className="h-4 w-4 mr-1 text-gray-400" />
+                          {new Date(selectedTask.dueDate).toLocaleDateString('pt-BR')}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <Label className="text-gray-400 text-sm">Responsáveis</Label>
+                    <div className="mt-1 flex flex-wrap gap-2">
+                      {selectedTask?.assignees.map(assignee => (
+                        <div 
+                          key={assignee.id} 
+                          className="flex items-center gap-2 bg-gray-800/50 text-sm rounded-md px-2 py-1"
+                        >
+                          <Avatar className="h-6 w-6">
+                            {assignee.avatar ? (
+                              <AvatarImage src={assignee.avatar} alt={assignee.name} />
+                            ) : (
+                              <AvatarFallback>{assignee.name.charAt(0)}</AvatarFallback>
+                            )}
+                          </Avatar>
+                          <span>{assignee.name}</span>
+                        </div>
+                      ))}
+                      {(!selectedTask?.assignees || selectedTask.assignees.length === 0) && (
+                        <span className="text-sm text-gray-400">Nenhum responsável designado</span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="border-t border-gray-800 pt-4">
+                    <Label className="text-gray-400 text-sm">Mover para</Label>
+                    <Select 
+                      defaultValue={kanbanColumns.find(col => 
+                        col.cards.some(card => card.id === selectedTask?.id)
+                      )?.id.toString()}
+                      onValueChange={(value) => {
+                        if (selectedTask) {
+                          const sourceColumnId = kanbanColumns.find(col => 
+                            col.cards.some(card => card.id === selectedTask.id)
+                          )?.id;
+                          
+                          if (sourceColumnId && sourceColumnId !== parseInt(value)) {
+                            handleMoveCard(selectedTask.id, sourceColumnId, parseInt(value));
+                            setShowTaskDetailDialog(false);
+                          }
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a coluna" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {kanbanColumns.map((column) => (
+                          <SelectItem key={column.id} value={column.id.toString()}>
+                            {column.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                <DialogFooter className="flex justify-between items-center">
+                  <Button 
+                    variant="destructive" 
+                    size="sm"
+                    onClick={() => {
+                      if (selectedTask) {
+                        const columnId = kanbanColumns.find(col => 
+                          col.cards.some(card => card.id === selectedTask.id)
+                        )?.id;
+                        
+                        if (columnId) {
+                          handleDeleteTask(selectedTask.id, columnId);
+                        }
+                      }
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Excluir
+                  </Button>
+                  
+                  <Button onClick={() => setShowTaskDetailDialog(false)}>
+                    <Edit className="h-4 w-4 mr-1" />
+                    Editar
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            
+            {/* Dialog for new card */}
+            <Dialog open={showNewCardDialog} onOpenChange={setShowNewCardDialog}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Adicionar Nova Tarefa</DialogTitle>
+                  <DialogDescription>
+                    Adicione uma nova tarefa à coluna "{kanbanColumns.find(col => col.id === selectedColumn)?.title}".
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="title">Título</Label>
+                    <Input 
+                      id="title" 
+                      value={newTask.title || ''}
+                      onChange={(e) => setNewTask({...newTask, title: e.target.value})}
+                      placeholder="Título da tarefa"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="description">Descrição</Label>
+                    <Textarea 
+                      id="description" 
+                      value={newTask.description || ''}
+                      onChange={(e) => setNewTask({...newTask, description: e.target.value})}
+                      placeholder="Descreva a tarefa"
+                      rows={3}
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="tag">Categoria</Label>
+                      <Select 
+                        onValueChange={(value) => {
+                          const tag = availableTags.find(t => t.id === parseInt(value));
+                          if (tag) setNewTask({...newTask, tag});
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableTags.map((tag) => (
+                            <SelectItem key={tag.id} value={tag.id.toString()}>
+                              <div className="flex items-center">
+                                <div className={`w-3 h-3 rounded-full ${tag.color} mr-2`}></div>
+                                {tag.name}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="dueDate">Data de Entrega</Label>
+                      <Input 
+                        id="dueDate" 
+                        type="date"
+                        value={newTask.dueDate || ''}
+                        onChange={(e) => setNewTask({...newTask, dueDate: e.target.value})}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>Responsáveis</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm">
+                            <Plus className="h-4 w-4 mr-1" />
+                            Adicionar
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-60 p-0">
+                          <div className="p-2 font-medium border-b border-gray-800">
+                            Membros da Equipe
+                          </div>
+                          <div className="max-h-60 overflow-auto">
+                            {teamMembers.map(member => (
+                              <div 
+                                key={member.id}
+                                className="p-2 flex items-center gap-2 hover:bg-gray-800/50 cursor-pointer"
+                                onClick={() => {
+                                  handleAddTeamMember(member);
+                                }}
+                              >
+                                <Avatar className="h-8 w-8">
+                                  {member.avatar ? (
+                                    <AvatarImage src={member.avatar} alt={member.name} />
+                                  ) : (
+                                    <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
+                                  )}
+                                </Avatar>
+                                <div>
+                                  <p className="text-sm font-medium">{member.name}</p>
+                                  <p className="text-xs text-gray-400">{member.role}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-2 min-h-10 p-2 border border-gray-800 rounded-md">
+                      {newTask.assignees && newTask.assignees.length > 0 ? (
+                        newTask.assignees.map(assignee => (
+                          <div 
+                            key={assignee.id} 
+                            className="flex items-center gap-1 bg-gray-800 text-sm rounded-md px-2 py-1"
+                          >
+                            <Avatar className="h-5 w-5">
+                              {assignee.avatar ? (
+                                <AvatarImage src={assignee.avatar} alt={assignee.name} />
+                              ) : (
+                                <AvatarFallback>{assignee.name.charAt(0)}</AvatarFallback>
+                              )}
+                            </Avatar>
+                            <span>{assignee.name}</span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-4 w-4 text-gray-400 hover:text-white p-0 ml-1"
+                              onClick={() => handleRemoveTeamMember(assignee.id)}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ))
+                      ) : (
+                        <span className="text-sm text-gray-500">Clique em Adicionar para selecionar responsáveis</span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="isUrgent" 
+                      checked={newTask.isUrgent || false}
+                      onCheckedChange={(checked) => setNewTask({...newTask, isUrgent: checked as boolean})}
+                    />
+                    <Label htmlFor="isUrgent">Marcar como urgente</Label>
+                  </div>
+                </div>
+                
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setShowNewCardDialog(false)}>
+                    Cancelar
+                  </Button>
+                  <Button onClick={handleAddTask}>
+                    Adicionar Tarefa
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </>
+        );
+        
+      case 'list':
+        return (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between mb-4">
+              <div className="relative w-64">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Buscar projetos..."
+                  className="pl-8"
+                />
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" className="gap-1">
+                  <Plus className="h-4 w-4" />
+                  <span>Novo Projeto</span>
+                </Button>
+                
+                <Select defaultValue="all">
+                  <SelectTrigger className="w-[130px]">
+                    <SelectValue placeholder="Filtrar por" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="progress">Em andamento</SelectItem>
+                    <SelectItem value="complete">Concluídos</SelectItem>
+                    <SelectItem value="urgent">Urgentes</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            <div className="grid gap-4 grid-cols-1">
+              {projectCards.map((project) => (
+                <Card key={project.id} className="bg-card hover:bg-gray-800/50 transition-colors cursor-pointer">
+                  <CardHeader className="pb-2">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <CardTitle>{project.title}</CardTitle>
+                        <CardDescription className="flex items-center mt-1">
+                          <Badge className={`mr-2 ${project.tag.color} bg-opacity-20`}>{project.tag.name}</Badge>
+                          <span className="text-sm text-gray-400">{project.status}</span>
+                        </CardDescription>
+                      </div>
+                      
+                      {project.isUrgent && (
+                        <Badge variant="outline" className="bg-red-900/30 text-red-400 border-red-500">
+                          <AlertCircle className="h-3 w-3 mr-1" />
+                          Urgente
+                        </Badge>
+                      )}
+                    </div>
+                  </CardHeader>
+                  
+                  <CardContent className="pb-2">
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm text-gray-400">
+                          <span>Progresso</span>
+                          <span>{project.progress}%</span>
+                        </div>
+                        <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full ${
+                              project.progress === 100 ? 'bg-green-500' :
+                              project.progress > 60 ? 'bg-blue-500' :
+                              project.progress > 30 ? 'bg-yellow-500' :
+                              'bg-red-500'
+                            }`}
+                            style={{ width: `${project.progress}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex justify-between text-sm">
+                        <div className="flex items-center">
+                          <CheckSquare className="h-4 w-4 text-gray-400 mr-1" />
+                          <span className="text-gray-400">
+                            {project.completed} de {project.tasks} tarefas
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center">
+                          <CalendarDays className="h-4 w-4 text-gray-400 mr-1" />
+                          <span className="text-gray-400">
+                            {new Date(project.dueDate).toLocaleDateString('pt-BR')}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                  
+                  <CardFooter className="pt-2">
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex -space-x-2">
+                        {project.assignees.map((assignee) => (
+                          <Avatar key={assignee.id} className="h-7 w-7 border border-gray-800">
+                            {assignee.avatar ? (
+                              <AvatarImage src={assignee.avatar} alt={assignee.name} />
+                            ) : (
+                              <AvatarFallback>{assignee.name.charAt(0)}</AvatarFallback>
+                            )}
+                          </Avatar>
+                        ))}
+                      </div>
+                      
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="text-gray-400 p-1">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem className="cursor-pointer">
+                            <Edit className="h-4 w-4 mr-2" />
+                            Editar Projeto
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="cursor-pointer">
+                            <ArrowRight className="h-4 w-4 mr-2" />
+                            Ver Detalhes
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-red-500 cursor-pointer">
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Excluir Projeto
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          </div>
+        );
+        
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">Gerenciamento de Projetos</h1>
+        
+        <div className="flex items-center space-x-2">
+          <Tabs value={viewType} onValueChange={(value) => setViewType(value as 'mindmap' | 'kanban' | 'list')}>
+            <TabsList className="bg-gray-800">
+              <TabsTrigger value="mindmap" className="data-[state=active]:bg-vet-primary/20">
+                <BrainCircuit className="h-4 w-4 mr-1" />
+                <span className="hidden sm:inline">Mapa Mental</span>
+              </TabsTrigger>
+              <TabsTrigger value="kanban" className="data-[state=active]:bg-vet-primary/20">
+                <Grid2X2 className="h-4 w-4 mr-1" />
+                <span className="hidden sm:inline">Kanban</span>
+              </TabsTrigger>
+              <TabsTrigger value="list" className="data-[state=active]:bg-vet-primary/20">
+                <ListTodo className="h-4 w-4 mr-1" />
+                <span className="hidden sm:inline">Lista</span>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+          
+          <Button size="sm" className="bg-vet-primary hover:bg-vet-primary/80">
+            <Plus className="h-4 w-4 mr-1" />
+            <span>Novo</span>
+          </Button>
+        </div>
+      </div>
+      
+      {renderContent()}
+    </div>
+  );
+};
+
+export default ProjectManagement;
