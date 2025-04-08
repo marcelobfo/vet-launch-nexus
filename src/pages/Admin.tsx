@@ -46,6 +46,14 @@ const Admin = ({ isDarkTheme, setIsDarkTheme }: AdminProps) => {
     industry: '',
     size: '',
     logo: '',
+    // Add the missing properties required by TextsForm
+    heroTitle: '',
+    heroSubtitle: '',
+    aboutText: '',
+    // Add the missing properties required by ColorSchemeForm
+    primaryColor: '#00A3E0',
+    secondaryColor: '#F28B00',
+    accentColor: '#95D600',
     colors: {
       primary: '#00A3E0',
       secondary: '#F28B00',
@@ -70,7 +78,6 @@ const Admin = ({ isDarkTheme, setIsDarkTheme }: AdminProps) => {
     emailMarketingCost: 300,
     contentMarketingCost: 800,
     paidMediaCost: 2000,
-    // Adding missing properties to match expected types
     hotLeadConversion: 20,
     coldLeadConversion: 5,
     landingPageConversion: 10,
@@ -125,7 +132,6 @@ const Admin = ({ isDarkTheme, setIsDarkTheme }: AdminProps) => {
     },
     retry: true,
     retryCount: 3,
-    // Adding missing properties to match expected types
     autoSend: false,
     frequency: "weekly" as const,
     registrationWebhookUrl: '',
@@ -155,7 +161,6 @@ const Admin = ({ isDarkTheme, setIsDarkTheme }: AdminProps) => {
     twoFactorAuth: false,
     ipWhitelist: '',
     maxLoginAttempts: 5,
-    // Adding missing properties to match expected types
     passwordProtection: true,
     adminPassword: 'admin123'
   });
@@ -329,12 +334,20 @@ const Admin = ({ isDarkTheme, setIsDarkTheme }: AdminProps) => {
             />
             
             <TextsForm 
-              companyInfo={companyInfo} 
+              companyInfo={{
+                heroTitle: companyInfo.heroTitle || companyInfo.texts?.slogan || '',
+                heroSubtitle: companyInfo.heroSubtitle || companyInfo.texts?.aboutShort || '',
+                aboutText: companyInfo.aboutText || companyInfo.texts?.about || ''
+              }} 
               handleCompanyInfoChange={handleCompanyInfoChange} 
             />
             
             <ColorSchemeForm 
-              companyInfo={companyInfo} 
+              companyInfo={{
+                primaryColor: companyInfo.primaryColor || companyInfo.colors?.primary || '',
+                secondaryColor: companyInfo.secondaryColor || companyInfo.colors?.secondary || '',
+                accentColor: companyInfo.accentColor || companyInfo.colors?.accent || ''
+              }} 
               handleCompanyInfoChange={handleCompanyInfoChange} 
             />
             
@@ -370,6 +383,8 @@ const Admin = ({ isDarkTheme, setIsDarkTheme }: AdminProps) => {
             <WebhookSettings 
               webhookSettings={webhookSettings}
               setWebhookSettings={setWebhookSettings}
+              companyInfo={companyInfo}
+              metrics={metrics}
             />
             <SMTPConfig />
           </TabsContent>
