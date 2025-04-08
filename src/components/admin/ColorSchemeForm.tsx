@@ -4,9 +4,14 @@ import { Input } from "@/components/ui/input";
 
 interface ColorSchemeFormProps {
   companyInfo: {
-    primaryColor: string;
-    secondaryColor: string;
-    accentColor: string;
+    primaryColor?: string;
+    secondaryColor?: string;
+    accentColor?: string;
+    colors?: {
+      primary: string;
+      secondary: string;
+      accent: string;
+    }
   };
   handleCompanyInfoChange: (field: string, value: string) => void;
 }
@@ -15,6 +20,11 @@ const ColorSchemeForm: React.FC<ColorSchemeFormProps> = ({
   companyInfo, 
   handleCompanyInfoChange 
 }) => {
+  // Map the companyInfo data structure to what the component expects
+  const primaryColor = companyInfo.primaryColor || companyInfo.colors?.primary || '#00A3E0';
+  const secondaryColor = companyInfo.secondaryColor || companyInfo.colors?.secondary || '#F28B00';
+  const accentColor = companyInfo.accentColor || companyInfo.colors?.accent || '#95D600';
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       <div>
@@ -22,12 +32,12 @@ const ColorSchemeForm: React.FC<ColorSchemeFormProps> = ({
         <div className="flex items-center gap-2">
           <div 
             className="w-10 h-10 rounded-md border border-white/20" 
-            style={{ backgroundColor: companyInfo.primaryColor }}
+            style={{ backgroundColor: primaryColor }}
           />
           <Input 
             type="text"
-            value={companyInfo.primaryColor} 
-            onChange={(e) => handleCompanyInfoChange('primaryColor', e.target.value)}
+            value={primaryColor} 
+            onChange={(e) => handleCompanyInfoChange(companyInfo.primaryColor ? 'primaryColor' : 'colors.primary', e.target.value)}
             className="bg-vet-primary/20 border-vet-primary/30"
           />
         </div>
@@ -38,12 +48,12 @@ const ColorSchemeForm: React.FC<ColorSchemeFormProps> = ({
         <div className="flex items-center gap-2">
           <div 
             className="w-10 h-10 rounded-md border border-white/20" 
-            style={{ backgroundColor: companyInfo.secondaryColor }}
+            style={{ backgroundColor: secondaryColor }}
           />
           <Input 
             type="text"
-            value={companyInfo.secondaryColor} 
-            onChange={(e) => handleCompanyInfoChange('secondaryColor', e.target.value)}
+            value={secondaryColor} 
+            onChange={(e) => handleCompanyInfoChange(companyInfo.secondaryColor ? 'secondaryColor' : 'colors.secondary', e.target.value)}
             className="bg-vet-primary/20 border-vet-primary/30"
           />
         </div>
@@ -54,12 +64,12 @@ const ColorSchemeForm: React.FC<ColorSchemeFormProps> = ({
         <div className="flex items-center gap-2">
           <div 
             className="w-10 h-10 rounded-md border border-white/20" 
-            style={{ backgroundColor: companyInfo.accentColor }}
+            style={{ backgroundColor: accentColor }}
           />
           <Input 
             type="text"
-            value={companyInfo.accentColor} 
-            onChange={(e) => handleCompanyInfoChange('accentColor', e.target.value)}
+            value={accentColor} 
+            onChange={(e) => handleCompanyInfoChange(companyInfo.accentColor ? 'accentColor' : 'colors.accent', e.target.value)}
             className="bg-vet-primary/20 border-vet-primary/30"
           />
         </div>

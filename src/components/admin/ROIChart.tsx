@@ -10,11 +10,37 @@ interface ROIChartProps {
   }>;
 }
 
-const ROIChart: React.FC<ROIChartProps> = ({ data }) => {
+// For backward compatibility
+interface LegacyROIChartProps {
+  revenue: number[];
+  cost: number[];
+  months: string[];
+}
+
+const ROIChart: React.FC<ROIChartProps | LegacyROIChartProps> = (props) => {
+  // Check if we're using the new data prop or legacy props
+  const isLegacyProps = 'revenue' in props;
+  
+  // If using legacy props, convert to the format expected by the chart
+  const chartData = isLegacyProps 
+    ? (props as LegacyROIChartProps).months.map((month, i) => {
+        const revenue = (props as LegacyROIChartProps).revenue[i];
+        const cost = (props as LegacyROIChartProps).cost[i];
+        const profit = revenue - cost;
+        const roi = ((profit / cost) * 100).toFixed(1);
+        
+        return {
+          name: month,
+          ROI: parseFloat(roi),
+          Lucro: Math.round(profit / 1000) // Convert to thousands for display
+        };
+      })
+    : (props as ROIChartProps).data;
+
   return (
     <div className="h-[240px]">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data}>
+        <LineChart data={chartData}>
           <CartesianGrid strokeDasharray="3 3" stroke="#444" />
           <XAxis dataKey="name" stroke="#999" />
           <YAxis stroke="#999" />

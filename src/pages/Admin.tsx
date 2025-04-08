@@ -23,7 +23,8 @@ import WebhookSettings from '@/components/admin/WebhookSettings';
 import SecuritySettings from '@/components/admin/SecuritySettings';
 import ReportPdfView from '@/components/admin/ReportPdfView';
 import FacebookApiConfig from '@/components/admin/FacebookApiConfig';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
+import { generateROIChartData, generateConversionChartData, calculatePerformanceMetrics } from '@/utils/chartDataUtils';
 
 interface AdminProps {
   isDarkTheme: boolean;
@@ -69,6 +70,14 @@ const Admin = ({ isDarkTheme, setIsDarkTheme }: AdminProps) => {
     emailMarketingCost: 300,
     contentMarketingCost: 800,
     paidMediaCost: 2000,
+    // Adding missing properties to match expected types
+    hotLeadConversion: 20,
+    coldLeadConversion: 5,
+    landingPageConversion: 10,
+    campaignConversion: 15,
+    cpc: 2.5,
+    ctr: 1.8,
+    productValue: 500
   });
   
   // Performance data for charts
@@ -79,6 +88,27 @@ const Admin = ({ isDarkTheme, setIsDarkTheme }: AdminProps) => {
     marketingCost: [4500, 4800, 5000, 5200, 5100, 5400, 5600, 5800, 6000, 6200, 6400, 6800],
     months: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
   });
+  
+  // Computed performance metrics based on time series data
+  const performanceMetrics = calculatePerformanceMetrics(
+    performance.monthlyLeads,
+    performance.monthlyConversions,
+    performance.revenue,
+    performance.marketingCost
+  );
+  
+  // Generate chart data
+  const roiChartData = generateROIChartData(
+    performance.revenue,
+    performance.marketingCost,
+    performance.months
+  );
+  
+  const conversionChartData = generateConversionChartData(
+    performance.monthlyLeads,
+    performance.monthlyConversions,
+    performance.months
+  );
   
   // Webhook settings
   const [webhookSettings, setWebhookSettings] = useState({
@@ -94,7 +124,19 @@ const Admin = ({ isDarkTheme, setIsDarkTheme }: AdminProps) => {
       'Authorization': ''
     },
     retry: true,
-    retryCount: 3
+    retryCount: 3,
+    // Adding missing properties to match expected types
+    autoSend: false,
+    frequency: "weekly" as const,
+    registrationWebhookUrl: '',
+    smtpSettings: {
+      host: '',
+      port: 587,
+      user: '',
+      password: '',
+      fromEmail: '',
+      fromName: ''
+    }
   });
   
   // Security settings
@@ -112,7 +154,10 @@ const Admin = ({ isDarkTheme, setIsDarkTheme }: AdminProps) => {
     requireEmailVerification: true,
     twoFactorAuth: false,
     ipWhitelist: '',
-    maxLoginAttempts: 5
+    maxLoginAttempts: 5,
+    // Adding missing properties to match expected types
+    passwordProtection: true,
+    adminPassword: 'admin123'
   });
 
   useEffect(() => {
@@ -137,6 +182,7 @@ const Admin = ({ isDarkTheme, setIsDarkTheme }: AdminProps) => {
     
   }, [company]);
 
+  // Handle company info changes - accepting string or any value
   const handleCompanyInfoChange = (field: string, value: string | any) => {
     setCompanyInfo(prev => {
       if (field.includes('.')) {
@@ -156,10 +202,14 @@ const Admin = ({ isDarkTheme, setIsDarkTheme }: AdminProps) => {
     });
   };
 
-  const handleMetricsChange = (field: string, value: number) => {
+  // Handle metrics changes - now accepts string values and converts them
+  const handleMetricsChange = (field: string, value: string | number) => {
+    // Convert string values to numbers if needed
+    const numericValue = typeof value === 'string' ? parseFloat(value) : value;
+    
     setMetrics(prev => ({
       ...prev,
-      [field]: value
+      [field]: numericValue
     }));
   };
 
@@ -256,11 +306,7 @@ const Admin = ({ isDarkTheme, setIsDarkTheme }: AdminProps) => {
                   <CardTitle>Retorno sobre Investimento</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <ROIChart 
-                    revenue={performance.revenue} 
-                    cost={performance.marketingCost} 
-                    months={performance.months} 
-                  />
+                  <ROIChart data={roiChartData} />
                 </CardContent>
               </Card>
               
@@ -269,11 +315,7 @@ const Admin = ({ isDarkTheme, setIsDarkTheme }: AdminProps) => {
                   <CardTitle>Taxa de Conversão</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <ConversionChart 
-                    leads={performance.monthlyLeads} 
-                    conversions={performance.monthlyConversions} 
-                    months={performance.months} 
-                  />
+                  <ConversionChart data={conversionChartData} />
                 </CardContent>
               </Card>
             </div>
@@ -297,7 +339,7 @@ const Admin = ({ isDarkTheme, setIsDarkTheme }: AdminProps) => {
             />
             
             <PerformanceMetrics 
-              performance={performance}
+              performance={performanceMetrics}
             />
             
             <MetricsForm 
@@ -310,11 +352,7 @@ const Admin = ({ isDarkTheme, setIsDarkTheme }: AdminProps) => {
           {/* Marketing Tab */}
           <TabsContent value="marketing" className="space-y-6">
             <FacebookApiConfig />
-            <ROIChart 
-              revenue={performance.revenue} 
-              cost={performance.marketingCost} 
-              months={performance.months} 
-            />
+            <ROIChart data={roiChartData} />
           </TabsContent>
           
           {/* Users Tab */}
@@ -330,8 +368,6 @@ const Admin = ({ isDarkTheme, setIsDarkTheme }: AdminProps) => {
           {/* Integrations Tab */}
           <TabsContent value="integrations" className="space-y-6">
             <WebhookSettings 
-              companyInfo={companyInfo}
-              metrics={metrics}
               webhookSettings={webhookSettings}
               setWebhookSettings={setWebhookSettings}
             />

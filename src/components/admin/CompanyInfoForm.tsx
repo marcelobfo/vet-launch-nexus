@@ -7,12 +7,28 @@ import { Label } from "@/components/ui/label";
 interface CompanyInfoFormProps {
   companyInfo: {
     name: string;
-    primaryColor: string;
-    secondaryColor: string;
-    accentColor: string;
-    heroTitle: string;
-    heroSubtitle: string;
-    aboutText: string;
+    heroTitle?: string;
+    heroSubtitle?: string;
+    aboutText?: string;
+    website?: string;
+    address?: string;
+    phone?: string;
+    industry?: string;
+    size?: string;
+    logo?: string;
+    colors?: {
+      primary: string;
+      secondary: string;
+      accent: string;
+    };
+    texts?: {
+      slogan: string;
+      aboutShort: string;
+      about: string;
+    };
+    primaryColor?: string;
+    secondaryColor?: string;
+    accentColor?: string;
   };
   handleCompanyInfoChange: (field: string, value: string) => void;
 }
@@ -21,6 +37,11 @@ const CompanyInfoForm: React.FC<CompanyInfoFormProps> = ({
   companyInfo, 
   handleCompanyInfoChange 
 }) => {
+  // Map the companyInfo data structure to what the component expects
+  const heroTitle = companyInfo.heroTitle || companyInfo.texts?.slogan || '';
+  const heroSubtitle = companyInfo.heroSubtitle || companyInfo.texts?.aboutShort || '';
+  const aboutText = companyInfo.aboutText || companyInfo.texts?.about || '';
+
   return (
     <div className="space-y-4">
       <div>
@@ -37,8 +58,8 @@ const CompanyInfoForm: React.FC<CompanyInfoFormProps> = ({
         <Label htmlFor="hero-title" className="block text-sm font-medium mb-1">Título Principal</Label>
         <Input 
           id="hero-title"
-          value={companyInfo.heroTitle} 
-          onChange={(e) => handleCompanyInfoChange('heroTitle', e.target.value)}
+          value={heroTitle} 
+          onChange={(e) => handleCompanyInfoChange(companyInfo.heroTitle ? 'heroTitle' : 'texts.slogan', e.target.value)}
           className="bg-vet-primary/20 border-vet-primary/30"
         />
       </div>
@@ -47,8 +68,8 @@ const CompanyInfoForm: React.FC<CompanyInfoFormProps> = ({
         <Label htmlFor="hero-subtitle" className="block text-sm font-medium mb-1">Subtítulo</Label>
         <Textarea 
           id="hero-subtitle"
-          value={companyInfo.heroSubtitle} 
-          onChange={(e) => handleCompanyInfoChange('heroSubtitle', e.target.value)}
+          value={heroSubtitle} 
+          onChange={(e) => handleCompanyInfoChange(companyInfo.heroSubtitle ? 'heroSubtitle' : 'texts.aboutShort', e.target.value)}
           className="bg-vet-primary/20 border-vet-primary/30 resize-none min-h-20"
         />
       </div>
@@ -57,8 +78,8 @@ const CompanyInfoForm: React.FC<CompanyInfoFormProps> = ({
         <Label htmlFor="about-text" className="block text-sm font-medium mb-1">Texto "Sobre"</Label>
         <Input 
           id="about-text"
-          value={companyInfo.aboutText} 
-          onChange={(e) => handleCompanyInfoChange('aboutText', e.target.value)}
+          value={aboutText} 
+          onChange={(e) => handleCompanyInfoChange(companyInfo.aboutText ? 'aboutText' : 'texts.about', e.target.value)}
           className="bg-vet-primary/20 border-vet-primary/30"
         />
       </div>
