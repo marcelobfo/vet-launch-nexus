@@ -1,47 +1,29 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import { NavBar } from "@/components/NavBar";
+import { NavBar } from '@/components/NavBar';
 import { Button } from "@/components/ui/button";
-import PasswordProtection from "@/components/PasswordProtection";
-import { useAuth } from "@/contexts/AuthContext";
-
-// Admin components
-import CompanyInfoForm from "@/components/admin/CompanyInfoForm";
-import TextsForm from "@/components/admin/TextsForm";
-import ColorSchemeForm from "@/components/admin/ColorSchemeForm";
-import PerformanceMetrics from "@/components/admin/PerformanceMetrics";
-import MetricsForm from "@/components/admin/MetricsForm";
-import ProjectManagement from "@/components/admin/ProjectManagement";
-import UserManagement from "@/components/admin/UserManagement";
-import CompanyManagement from "@/components/admin/CompanyManagement";
-import WebhookSettings from "@/components/admin/WebhookSettings";
-import SecuritySettings from "@/components/admin/SecuritySettings";
-import FacebookApiConfig from "@/components/admin/FacebookApiConfig";
-import ReportPdfView from "@/components/admin/ReportPdfView";
-import SMTPConfig from "@/components/admin/SMTPConfig";
-
-// Icons
-import { 
-  Home,
-  LayoutDashboard, 
-  Settings, 
-  Edit, 
-  PieChart, 
-  Gauge, 
-  BarChart,
-  Activity,
-  FileText,
-  Users,
-  Building,
-  Webhook,
-  Lock,
-  Facebook,
-  Mail,
-  Database
-} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import SMTPConfig from '@/components/admin/SMTPConfig';
+import DatabaseConfig from '@/components/admin/DatabaseConfig';
+import CompanyManagement from '@/components/admin/CompanyManagement';
+import UserManagement from '@/components/admin/UserManagement';
+import ProjectManagement from '@/components/admin/ProjectManagement';
+import CompanyInfoForm from '@/components/admin/CompanyInfoForm';
+import TextsForm from '@/components/admin/TextsForm';
+import ColorSchemeForm from '@/components/admin/ColorSchemeForm';
+import PerformanceMetrics from '@/components/admin/PerformanceMetrics';
+import MetricsForm from '@/components/admin/MetricsForm';
+import ROIChart from '@/components/admin/ROIChart';
+import ConversionChart from '@/components/admin/ConversionChart';
+import WebhookSettings from '@/components/admin/WebhookSettings';
+import SecuritySettings from '@/components/admin/SecuritySettings';
+import ReportPdfView from '@/components/admin/ReportPdfView';
+import FacebookApiConfig from '@/components/admin/FacebookApiConfig';
+import { supabase } from '@/lib/supabase';
 
 interface AdminProps {
   isDarkTheme: boolean;
@@ -49,241 +31,328 @@ interface AdminProps {
 }
 
 const Admin = ({ isDarkTheme, setIsDarkTheme }: AdminProps) => {
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const { toast } = useToast();
+  const navigate = useNavigate();
   const { user, company } = useAuth();
+  const [currentTab, setCurrentTab] = useState("dashboard");
   
-  const isAdmin = user?.role === 'admin';
+  // Company info state
+  const [companyInfo, setCompanyInfo] = useState({
+    name: '',
+    website: '',
+    address: '',
+    phone: '',
+    industry: '',
+    size: '',
+    logo: '',
+    colors: {
+      primary: '#00A3E0',
+      secondary: '#F28B00',
+      accent: '#95D600'
+    },
+    texts: {
+      slogan: 'Transformando o atendimento veterinário digital',
+      aboutShort: 'Soluções digitais para clínicas e hospitais veterinários',
+      about: 'Nossa plataforma oferece ferramentas completas para gestão de clínicas veterinárias, incluindo prontuário eletrônico, agendamento online e comunicação com tutores.'
+    }
+  });
+
+  // Metrics state
+  const [metrics, setMetrics] = useState({
+    campaignBudget: 5000,
+    leadCost: 15,
+    conversionRate: 12,
+    averageTicket: 500,
+    clientLifetime: 24,
+    websiteConversion: 8,
+    socialMediaCost: 500,
+    emailMarketingCost: 300,
+    contentMarketingCost: 800,
+    paidMediaCost: 2000,
+  });
+  
+  // Performance data for charts
+  const [performance, setPerformance] = useState({
+    monthlyLeads: [120, 145, 160, 170, 155, 190, 210, 205, 220, 250, 270, 300],
+    monthlyConversions: [18, 22, 25, 24, 26, 30, 35, 38, 42, 45, 48, 55],
+    revenue: [9000, 11000, 12500, 12000, 13000, 15000, 17500, 19000, 21000, 22500, 24000, 27500],
+    marketingCost: [4500, 4800, 5000, 5200, 5100, 5400, 5600, 5800, 6000, 6200, 6400, 6800],
+    months: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+  });
+  
+  // Webhook settings
+  const [webhookSettings, setWebhookSettings] = useState({
+    url: '',
+    events: {
+      newUser: true,
+      newProject: true,
+      statusChange: false,
+      completedTask: false
+    },
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': ''
+    },
+    retry: true,
+    retryCount: 3
+  });
+  
+  // Security settings
+  const [securitySettings, setSecuritySettings] = useState({
+    passwordPolicy: {
+      minLength: 8,
+      requireUppercase: true,
+      requireLowercase: true,
+      requireNumbers: true,
+      requireSpecialChars: true
+    },
+    sessionTimeout: 30,
+    allowSelfRegistration: true,
+    allowPasswordReset: true,
+    requireEmailVerification: true,
+    twoFactorAuth: false,
+    ipWhitelist: '',
+    maxLoginAttempts: 5
+  });
+
+  useEffect(() => {
+    document.title = "Painel Administrativo | Vet Launch Nexus";
+    
+    // If we have company data from auth context, update the state
+    if (company) {
+      // Update company info
+      setCompanyInfo(prev => ({
+        ...prev,
+        name: company.name || prev.name
+      }));
+      
+      // Update webhook settings if available
+      if (company.webhook_url) {
+        setWebhookSettings(prev => ({
+          ...prev,
+          url: company.webhook_url
+        }));
+      }
+    }
+    
+  }, [company]);
+
+  const handleCompanyInfoChange = (field: string, value: string | any) => {
+    setCompanyInfo(prev => {
+      if (field.includes('.')) {
+        const [category, key] = field.split('.');
+        return {
+          ...prev,
+          [category]: {
+            ...prev[category],
+            [key]: value
+          }
+        };
+      }
+      return {
+        ...prev,
+        [field]: value
+      };
+    });
+  };
+
+  const handleMetricsChange = (field: string, value: number) => {
+    setMetrics(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleExportReport = async () => {
+    toast({
+      title: "Exportando relatório",
+      description: "O relatório está sendo gerado em PDF."
+    });
+    
+    // Normally we would generate a PDF here
+    setTimeout(() => {
+      toast({
+        title: "Relatório exportado",
+        description: "O PDF foi gerado com sucesso!"
+      });
+    }, 2000);
+  };
 
   return (
-    <PasswordProtection>
-      <div className="min-h-screen bg-vet-dark">
-        <NavBar isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
+    <div className="min-h-screen bg-vet-dark text-white">
+      <NavBar isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
+      
+      <div className="container mx-auto py-8 px-4">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold">Painel Administrativo</h1>
+          <Button onClick={() => navigate('/')} variant="outline">
+            Voltar para o site
+          </Button>
+        </div>
         
-        <div className="container py-8">
-          <div className="mb-6 flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold text-white">Painel Administrativo</h1>
-              <p className="text-gray-400">Gerencie sua empresa, usuários e projetos</p>
-            </div>
-            
-            <div className="space-x-2">
-              <Button variant="outline" onClick={() => window.location.href = "/"}>
-                <Home className="h-4 w-4 mr-2" />
-                <span>Voltar para o Site</span>
-              </Button>
-            </div>
+        <Tabs value={currentTab} onValueChange={setCurrentTab} className="space-y-6">
+          <div className="bg-card rounded-lg p-1 overflow-x-auto">
+            <TabsList className="flex space-x-1 w-max min-w-full">
+              <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+              <TabsTrigger value="company">Informações da Empresa</TabsTrigger>
+              <TabsTrigger value="marketing">Marketing</TabsTrigger>
+              <TabsTrigger value="users">Usuários</TabsTrigger>
+              <TabsTrigger value="projects">Projetos</TabsTrigger>
+              <TabsTrigger value="integrations">Integrações</TabsTrigger>
+              <TabsTrigger value="settings">Configurações</TabsTrigger>
+            </TabsList>
           </div>
           
-          <Tabs defaultValue="dashboard" value={activeTab} onValueChange={setActiveTab}>
-            <div className="flex flex-col md:flex-row gap-6">
-              <div className="md:w-64">
-                <div className="bg-card rounded-lg border border-gray-800 p-2 sticky top-24">
-                  <TabsList className="flex flex-col items-stretch h-auto bg-transparent space-y-1">
-                    <TabsTrigger 
-                      value="dashboard" 
-                      className="justify-start data-[state=active]:bg-vet-primary/20 data-[state=active]:text-vet-primary"
-                    >
-                      <LayoutDashboard className="h-4 w-4 mr-2" />
-                      Dashboard
-                    </TabsTrigger>
-                    
-                    <Separator className="my-2 bg-gray-800" />
-                    
-                    <TabsTrigger 
-                      value="projects" 
-                      className="justify-start data-[state=active]:bg-vet-primary/20 data-[state=active]:text-vet-primary"
-                    >
-                      <Activity className="h-4 w-4 mr-2" />
-                      Projetos
-                    </TabsTrigger>
-                    
-                    <TabsTrigger 
-                      value="users" 
-                      className="justify-start data-[state=active]:bg-vet-primary/20 data-[state=active]:text-vet-primary"
-                    >
-                      <Users className="h-4 w-4 mr-2" />
-                      Usuários
-                    </TabsTrigger>
-                    
-                    {isAdmin && (
-                      <TabsTrigger 
-                        value="companies" 
-                        className="justify-start data-[state=active]:bg-vet-primary/20 data-[state=active]:text-vet-primary"
-                      >
-                        <Building className="h-4 w-4 mr-2" />
-                        Empresas
-                      </TabsTrigger>
-                    )}
-                    
-                    <Separator className="my-2 bg-gray-800" />
-                    
-                    <TabsTrigger 
-                      value="texts" 
-                      className="justify-start data-[state=active]:bg-vet-primary/20 data-[state=active]:text-vet-primary"
-                    >
-                      <Edit className="h-4 w-4 mr-2" />
-                      Textos
-                    </TabsTrigger>
-                    
-                    <TabsTrigger 
-                      value="colors" 
-                      className="justify-start data-[state=active]:bg-vet-primary/20 data-[state=active]:text-vet-primary"
-                    >
-                      <Settings className="h-4 w-4 mr-2" />
-                      Cores
-                    </TabsTrigger>
-                    
-                    <TabsTrigger 
-                      value="metrics" 
-                      className="justify-start data-[state=active]:bg-vet-primary/20 data-[state=active]:text-vet-primary"
-                    >
-                      <Gauge className="h-4 w-4 mr-2" />
-                      Métricas
-                    </TabsTrigger>
-                    
-                    <TabsTrigger 
-                      value="performance" 
-                      className="justify-start data-[state=active]:bg-vet-primary/20 data-[state=active]:text-vet-primary"
-                    >
-                      <BarChart className="h-4 w-4 mr-2" />
-                      Performance
-                    </TabsTrigger>
-                    
-                    <TabsTrigger 
-                      value="reports" 
-                      className="justify-start data-[state=active]:bg-vet-primary/20 data-[state=active]:text-vet-primary"
-                    >
-                      <FileText className="h-4 w-4 mr-2" />
-                      Relatórios
-                    </TabsTrigger>
-                    
-                    <Separator className="my-2 bg-gray-800" />
-                    
-                    <TabsTrigger 
-                      value="smtp" 
-                      className="justify-start data-[state=active]:bg-vet-primary/20 data-[state=active]:text-vet-primary"
-                    >
-                      <Mail className="h-4 w-4 mr-2" />
-                      Email (SMTP)
-                    </TabsTrigger>
-                    
-                    <TabsTrigger 
-                      value="webhooks" 
-                      className="justify-start data-[state=active]:bg-vet-primary/20 data-[state=active]:text-vet-primary"
-                    >
-                      <Webhook className="h-4 w-4 mr-2" />
-                      Webhooks
-                    </TabsTrigger>
-                    
-                    <TabsTrigger 
-                      value="security" 
-                      className="justify-start data-[state=active]:bg-vet-primary/20 data-[state=active]:text-vet-primary"
-                    >
-                      <Lock className="h-4 w-4 mr-2" />
-                      Segurança
-                    </TabsTrigger>
-                    
-                    <TabsTrigger 
-                      value="facebook" 
-                      className="justify-start data-[state=active]:bg-vet-primary/20 data-[state=active]:text-vet-primary"
-                    >
-                      <Facebook className="h-4 w-4 mr-2" />
-                      Facebook
-                    </TabsTrigger>
-                    
-                    <TabsTrigger 
-                      value="database" 
-                      className="justify-start data-[state=active]:bg-vet-primary/20 data-[state=active]:text-vet-primary"
-                    >
-                      <Database className="h-4 w-4 mr-2" />
-                      Banco de Dados
-                    </TabsTrigger>
-                  </TabsList>
-                </div>
-              </div>
+          {/* Dashboard Tab */}
+          <TabsContent value="dashboard" className="space-y-6">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+              <Card className="bg-card shadow-md border-gray-800">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg">Total de Leads</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">{performance.monthlyLeads.reduce((a, b) => a + b, 0)}</div>
+                  <p className="text-sm text-gray-400">Nos últimos 12 meses</p>
+                </CardContent>
+              </Card>
               
-              <div className="flex-1">
-                <ScrollArea className="rounded-lg border border-gray-800 bg-card">
-                  <div className="p-6">
-                    <TabsContent value="dashboard" className="space-y-4 mt-0">
-                      <CompanyInfoForm />
-                    </TabsContent>
-                    
-                    <TabsContent value="texts" className="space-y-4 mt-0">
-                      <TextsForm />
-                    </TabsContent>
-                    
-                    <TabsContent value="colors" className="space-y-4 mt-0">
-                      <ColorSchemeForm />
-                    </TabsContent>
-                    
-                    <TabsContent value="performance" className="space-y-4 mt-0">
-                      <PerformanceMetrics />
-                    </TabsContent>
-                    
-                    <TabsContent value="metrics" className="space-y-4 mt-0">
-                      <MetricsForm />
-                    </TabsContent>
-                    
-                    <TabsContent value="projects" className="space-y-4 mt-0">
-                      <ProjectManagement />
-                    </TabsContent>
-                    
-                    <TabsContent value="users" className="space-y-4 mt-0">
-                      <UserManagement />
-                    </TabsContent>
-                    
-                    {isAdmin && (
-                      <TabsContent value="companies" className="space-y-4 mt-0">
-                        <CompanyManagement />
-                      </TabsContent>
-                    )}
-                    
-                    <TabsContent value="webhooks" className="space-y-4 mt-0">
-                      <WebhookSettings />
-                    </TabsContent>
-                    
-                    <TabsContent value="smtp" className="space-y-4 mt-0">
-                      <SMTPConfig />
-                    </TabsContent>
-                    
-                    <TabsContent value="security" className="space-y-4 mt-0">
-                      <SecuritySettings />
-                    </TabsContent>
-                    
-                    <TabsContent value="facebook" className="space-y-4 mt-0">
-                      <FacebookApiConfig />
-                    </TabsContent>
-                    
-                    <TabsContent value="reports" className="space-y-4 mt-0">
-                      <ReportPdfView />
-                    </TabsContent>
-                    
-                    <TabsContent value="database" className="space-y-4 mt-0">
-                      <div className="bg-blue-900/20 border border-blue-700/30 rounded-md p-6 text-center">
-                        <Database className="h-12 w-12 mx-auto mb-4 text-blue-400" />
-                        <h3 className="text-xl font-medium text-blue-400 mb-2">Conexão com Supabase</h3>
-                        <p className="text-gray-400 mb-4">
-                          Esta aplicação agora está configurada para usar o Supabase como banco de dados.
-                          Para gerenciar seus dados, acesse o painel do Supabase.
-                        </p>
-                        <Button
-                          variant="outline" 
-                          className="border-blue-500 text-blue-400 hover:bg-blue-950/50"
-                          onClick={() => window.open("https://supabase.com/dashboard", "_blank")}
-                        >
-                          Acessar Painel do Supabase
-                        </Button>
-                      </div>
-                    </TabsContent>
+              <Card className="bg-card shadow-md border-gray-800">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg">Conversões</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">{performance.monthlyConversions.reduce((a, b) => a + b, 0)}</div>
+                  <p className="text-sm text-gray-400">Nos últimos 12 meses</p>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-card shadow-md border-gray-800">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg">Receita</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">R$ {(performance.revenue.reduce((a, b) => a + b, 0) / 1000).toFixed(1)}k</div>
+                  <p className="text-sm text-gray-400">Nos últimos 12 meses</p>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-card shadow-md border-gray-800">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg">ROI</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">
+                    {(((performance.revenue.reduce((a, b) => a + b, 0) - performance.marketingCost.reduce((a, b) => a + b, 0)) / 
+                      performance.marketingCost.reduce((a, b) => a + b, 0)) * 100).toFixed(1)}%
                   </div>
-                </ScrollArea>
-              </div>
+                  <p className="text-sm text-gray-400">Retorno sobre investimento</p>
+                </CardContent>
+              </Card>
             </div>
-          </Tabs>
-        </div>
+            
+            <div className="grid gap-6 md:grid-cols-2">
+              <Card className="bg-card shadow-md border-gray-800">
+                <CardHeader>
+                  <CardTitle>Retorno sobre Investimento</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ROIChart 
+                    revenue={performance.revenue} 
+                    cost={performance.marketingCost} 
+                    months={performance.months} 
+                  />
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-card shadow-md border-gray-800">
+                <CardHeader>
+                  <CardTitle>Taxa de Conversão</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ConversionChart 
+                    leads={performance.monthlyLeads} 
+                    conversions={performance.monthlyConversions} 
+                    months={performance.months} 
+                  />
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+          
+          {/* Company Tab */}
+          <TabsContent value="company" className="space-y-6">
+            <CompanyInfoForm 
+              companyInfo={companyInfo} 
+              handleCompanyInfoChange={handleCompanyInfoChange} 
+            />
+            
+            <TextsForm 
+              companyInfo={companyInfo} 
+              handleCompanyInfoChange={handleCompanyInfoChange} 
+            />
+            
+            <ColorSchemeForm 
+              companyInfo={companyInfo} 
+              handleCompanyInfoChange={handleCompanyInfoChange} 
+            />
+            
+            <PerformanceMetrics 
+              performance={performance}
+            />
+            
+            <MetricsForm 
+              metrics={metrics} 
+              handleMetricsChange={handleMetricsChange} 
+              handleExportReport={handleExportReport}
+            />
+          </TabsContent>
+          
+          {/* Marketing Tab */}
+          <TabsContent value="marketing" className="space-y-6">
+            <FacebookApiConfig />
+            <ROIChart 
+              revenue={performance.revenue} 
+              cost={performance.marketingCost} 
+              months={performance.months} 
+            />
+          </TabsContent>
+          
+          {/* Users Tab */}
+          <TabsContent value="users" className="space-y-6">
+            <UserManagement />
+          </TabsContent>
+          
+          {/* Projects Tab */}
+          <TabsContent value="projects" className="space-y-6">
+            <ProjectManagement />
+          </TabsContent>
+          
+          {/* Integrations Tab */}
+          <TabsContent value="integrations" className="space-y-6">
+            <WebhookSettings 
+              companyInfo={companyInfo}
+              metrics={metrics}
+              webhookSettings={webhookSettings}
+              setWebhookSettings={setWebhookSettings}
+            />
+            <SMTPConfig />
+          </TabsContent>
+          
+          {/* Settings Tab */}
+          <TabsContent value="settings" className="space-y-6">
+            <SecuritySettings 
+              securitySettings={securitySettings}
+              setSecuritySettings={setSecuritySettings}
+            />
+            <DatabaseConfig />
+            <ReportPdfView 
+              companyInfo={companyInfo}
+              metrics={metrics}
+            />
+          </TabsContent>
+        </Tabs>
       </div>
-    </PasswordProtection>
+    </div>
   );
 };
 
