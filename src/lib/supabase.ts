@@ -18,6 +18,7 @@ export type Company = {
   smtp_pass?: string;
   smtp_from?: string;
   webhook_url?: string;
+  allow_signup?: boolean;
 };
 
 export type User = {
@@ -43,4 +44,14 @@ export type Project = {
   start_date?: string;
   end_date?: string;
   owner_id?: string;
+};
+
+export type AccessCode = {
+  id: string;
+  email: string;
+  company_id: string;
+  code: string;
+  created_at: string;
+  expires_at: string;
+  is_used: boolean;
 };
