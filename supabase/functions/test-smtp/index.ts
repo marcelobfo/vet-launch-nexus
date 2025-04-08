@@ -1,5 +1,5 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { SmtpClient } from "https://deno.land/x/smtp@v0.7.0/mod.ts";
 
 interface SmtpConfig {
@@ -25,25 +25,24 @@ const corsHeaders = {
 
 serve(async (req) => {
   // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
     const { config, to, subject, text } = await req.json() as TestSmtpRequestBody;
     
     if (!config || !to || !subject || !text) {
-      return new Response(JSON.stringify({ 
-        error: 'Parâmetros incompletos'
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400
-      });
+      return new Response(
+        JSON.stringify({ error: "Parâmetros incompletos" }),
+        { 
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400 
+        }
+      );
     }
     
-    console.log("Testing SMTP connection to:", config.host);
-    
-    // Configure and test SMTP client
+    // Configurar cliente SMTP
     const client = new SmtpClient();
     await client.connectTLS({
       hostname: config.host,
@@ -52,7 +51,7 @@ serve(async (req) => {
       password: config.pass,
     });
     
-    // Send test email
+    // Enviar email de teste
     await client.send({
       from: config.from,
       to: to,
@@ -62,22 +61,26 @@ serve(async (req) => {
     
     await client.close();
     
-    console.log("SMTP test successful");
-    
-    return new Response(JSON.stringify({ 
-      success: true,
-      message: 'Teste de email enviado com sucesso'
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200
-    });
+    return new Response(
+      JSON.stringify({ 
+        success: true,
+        message: "Teste de email enviado com sucesso" 
+      }),
+      { 
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200 
+      }
+    );
   } catch (error) {
-    console.error("SMTP test error:", error);
-    return new Response(JSON.stringify({ 
-      error: `Erro ao testar SMTP: ${error.message}`
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500
-    });
+    console.error("Error in test-smtp function:", error);
+    return new Response(
+      JSON.stringify({ 
+        error: `Erro ao testar SMTP: ${error.message}` 
+      }),
+      { 
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500 
+      }
+    );
   }
-})
+});

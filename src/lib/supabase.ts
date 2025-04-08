@@ -1,9 +1,20 @@
 
 // This file is deprecated. Please use the official client at @/integrations/supabase/client
-import { supabase } from '@/integrations/supabase/client';
+import { createClient } from '@supabase/supabase-js';
 
-// Re-export the supabase client from the official location
-export { supabase };
+// Supabase client instance
+export const supabase = createClient(
+  "https://opipazvvefdcdyywybpm.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9waXBhenZ2ZWZkY2R5eXd5YnBtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQwNzU2OTQsImV4cCI6MjA1OTY1MTY5NH0.VlI8VCi4kIPL1inCSH90RsLNZ1j1IZlEuvOlW869L-8",
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      storageKey: 'vetpro360-auth-token',
+      storage: localStorage
+    }
+  }
+);
 
 // Types for Supabase tables
 export type Company = {
@@ -57,8 +68,8 @@ export type AccessCode = {
 };
 
 // Extend the Database interface to include table definitions
-declare module '@supabase/supabase-js' {
-  interface Database {
+declare global {
+  type Database = {
     public: {
       Tables: {
         companies: {
@@ -88,3 +99,13 @@ declare module '@supabase/supabase-js' {
     };
   }
 }
+
+// Now we'll update the supabase/config.toml file to configure our edge functions
+<lov-write file_path="supabase/config.toml">
+project_id = "opipazvvefdcdyywybpm"
+
+[functions.test-smtp]
+verify_jwt = false
+
+[functions.send-email]
+verify_jwt = false
