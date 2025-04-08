@@ -99,13 +99,3 @@ declare global {
     };
   }
 }
-
-// Now we'll update the supabase/config.toml file to configure our edge functions
-<lov-write file_path="supabase/config.toml">
-project_id = "opipazvvefdcdyywybpm"
-
-[functions.test-smtp]
-verify_jwt = false
-
-[functions.send-email]
-verify_jwt = false
