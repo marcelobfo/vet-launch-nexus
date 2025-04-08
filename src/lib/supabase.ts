@@ -55,3 +55,36 @@ export type AccessCode = {
   expires_at: string;
   is_used: boolean;
 };
+
+// Extend the Database interface to include table definitions
+declare module '@supabase/supabase-js' {
+  interface Database {
+    public: {
+      Tables: {
+        companies: {
+          Row: Company;
+          Insert: Omit<Company, 'id' | 'created_at'>;
+          Update: Partial<Omit<Company, 'id' | 'created_at'>>;
+        };
+        users: {
+          Row: User;
+          Insert: Omit<User, 'id' | 'created_at'>;
+          Update: Partial<Omit<User, 'id' | 'created_at'>>;
+        };
+        projects: {
+          Row: Project;
+          Insert: Omit<Project, 'id' | 'created_at'>;
+          Update: Partial<Omit<Project, 'id' | 'created_at'>>;
+        };
+        access_codes: {
+          Row: AccessCode;
+          Insert: Omit<AccessCode, 'id' | 'created_at'>;
+          Update: Partial<Omit<AccessCode, 'id' | 'created_at'>>;
+        };
+      };
+      Views: {};
+      Functions: {};
+      Enums: {};
+    };
+  }
+}
