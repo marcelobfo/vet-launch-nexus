@@ -7,11 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, Lock, UserPlus, Send, ArrowRight } from "lucide-react";
+import { Mail, Lock, UserPlus, Send, ArrowRight, Building } from "lucide-react";
+import { useAuth } from '@/contexts/AuthContext';
 
 const Login = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { sendLoginCode, verifyLoginCode, register, user } = useAuth();
   const [activeTab, setActiveTab] = useState<"login" | "register">("login");
   const [loading, setLoading] = useState(false);
   const [companyCode, setCompanyCode] = useState("");
@@ -26,6 +28,12 @@ const Login = () => {
   const [registerEmail, setRegisterEmail] = useState("");
   const [registerWhatsapp, setRegisterWhatsapp] = useState("");
   const [registerCompanyCode, setRegisterCompanyCode] = useState("");
+  
+  // Redirecionar se já estiver autenticado
+  if (user) {
+    navigate('/');
+    return null;
+  }
   
   const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,23 +59,28 @@ const Login = () => {
     setLoading(true);
     
     try {
-      // In a real implementation, this would be a fetch to your backend
-      // to verify the company code and send the login code via SMTP
-      setTimeout(() => {
-        // Simulating API response
+      const result = await sendLoginCode(loginEmail, companyCode);
+      
+      if (result.success) {
         setCodeSent(true);
-        setLoading(false);
         toast({
           title: "Código enviado",
-          description: `Um código de acesso foi enviado para ${loginEmail}.`,
+          description: result.message || `Um código de acesso foi enviado para ${loginEmail}.`,
         });
-      }, 1500);
+      } else {
+        toast({
+          title: "Erro ao enviar código",
+          description: result.message || "Não foi possível enviar o código. Verifique as informações e tente novamente.",
+          variant: "destructive"
+        });
+      }
     } catch (error) {
       toast({
         title: "Erro ao enviar código",
-        description: "Não foi possível enviar o código. Verifique as informações e tente novamente.",
+        description: "Ocorreu um erro inesperado. Tente novamente mais tarde.",
         variant: "destructive"
       });
+    } finally {
       setLoading(false);
     }
   };
@@ -87,29 +100,28 @@ const Login = () => {
     setLoading(true);
     
     try {
-      // In a real implementation, this would be a fetch to your backend
-      // to verify the login code
-      setTimeout(() => {
-        // Simulating successful login
-        localStorage.setItem("isLoggedIn", "true");
-        localStorage.setItem("userEmail", loginEmail);
-        localStorage.setItem("companyCode", companyCode);
-        
-        setLoading(false);
+      const result = await verifyLoginCode(loginEmail, loginCode, companyCode);
+      
+      if (result.success) {
         toast({
           title: "Login realizado com sucesso",
           description: "Você será redirecionado para o dashboard.",
         });
-        
-        // Redirect to appropriate page
         navigate("/");
-      }, 1500);
+      } else {
+        toast({
+          title: "Erro ao fazer login",
+          description: result.message || "Código inválido ou expirado. Por favor, tente novamente.",
+          variant: "destructive"
+        });
+      }
     } catch (error) {
       toast({
         title: "Erro ao fazer login",
-        description: "Código inválido ou expirado. Por favor, tente novamente.",
+        description: "Ocorreu um erro inesperado. Tente novamente mais tarde.",
         variant: "destructive"
       });
+    } finally {
       setLoading(false);
     }
   };
@@ -126,47 +138,66 @@ const Login = () => {
       return;
     }
     
+    // Validação simples de e-mail
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(registerEmail)) {
+      toast({
+        title: "E-mail inválido",
+        description: "Por favor, insira um endereço de e-mail válido.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setLoading(true);
     
     try {
-      // In a real implementation, this would be a fetch to your backend
-      // to register the user and send the registration data to the webhook
-      setTimeout(() => {
-        // Simulate webhook call with registration data
-        console.log("Webhook payload:", {
-          name: registerName,
-          email: registerEmail,
-          whatsapp: registerWhatsapp,
-          companyCode: registerCompanyCode,
-          timestamp: new Date().toISOString()
-        });
-        
-        setLoading(false);
+      const result = await register({
+        name: registerName,
+        email: registerEmail,
+        whatsapp: registerWhatsapp,
+        companyCode: registerCompanyCode
+      });
+      
+      if (result.success) {
         toast({
           title: "Cadastro realizado com sucesso",
-          description: "Você receberá um código de acesso no e-mail informado.",
+          description: result.message || "Você pode fazer login agora.",
         });
         
-        // Switch to login tab after successful registration
+        // Preencher campos de login e mudar para a aba de login
         setActiveTab("login");
         setLoginEmail(registerEmail);
         setCompanyCode(registerCompanyCode);
-      }, 1500);
+        
+        // Limpar campos de registro
+        setRegisterName("");
+        setRegisterEmail("");
+        setRegisterWhatsapp("");
+        setRegisterCompanyCode("");
+      } else {
+        toast({
+          title: "Erro ao cadastrar",
+          description: result.message || "Não foi possível completar o cadastro. Tente novamente mais tarde.",
+          variant: "destructive"
+        });
+      }
     } catch (error) {
       toast({
         title: "Erro ao cadastrar",
-        description: "Não foi possível completar o cadastro. Tente novamente mais tarde.",
+        description: "Ocorreu um erro inesperado. Tente novamente mais tarde.",
         variant: "destructive"
       });
+    } finally {
       setLoading(false);
     }
   };
   
   const formatWhatsapp = (value: string) => {
-    // Remove non-digits
+    // Remove não-dígitos
     let digits = value.replace(/\D/g, '');
     
-    // Format according to BR format: (XX) XXXXX-XXXX
+    // Formata no padrão BR: (XX) XXXXX-XXXX
     if (digits.length <= 2) {
       return `(${digits}`;
     } else if (digits.length <= 7) {
@@ -183,16 +214,16 @@ const Login = () => {
   };
   
   return (
-    <div className="flex min-h-screen items-center justify-center bg-vet-dark p-4">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-gray-900 to-gray-800 p-4">
       <div className="w-full max-w-md">
         <div className="mb-6 text-center">
           <h1 className="text-2xl font-bold text-white">Vet Pro 360</h1>
           <p className="text-gray-400">Sistema de lançamentos para profissionais veterinários</p>
         </div>
         
-        <Card className="bg-card border-gray-800">
+        <Card className="backdrop-blur-sm bg-card/90 border-gray-700 shadow-xl">
           <CardHeader>
-            <CardTitle>Acesso à Plataforma</CardTitle>
+            <CardTitle className="text-xl">Acesso à Plataforma</CardTitle>
             <CardDescription>
               Faça login ou cadastre-se para acessar a plataforma
             </CardDescription>
@@ -211,14 +242,17 @@ const Login = () => {
                   <form onSubmit={handleSendCode} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="company-code">Código da Empresa</Label>
-                      <Input
-                        id="company-code"
-                        type="text"
-                        placeholder="Código da empresa"
-                        value={companyCode}
-                        onChange={(e) => setCompanyCode(e.target.value)}
-                        className="bg-vet-primary/20 border-vet-primary/30"
-                      />
+                      <div className="relative">
+                        <Building className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                        <Input
+                          id="company-code"
+                          type="text"
+                          placeholder="Código da empresa"
+                          value={companyCode}
+                          onChange={(e) => setCompanyCode(e.target.value)}
+                          className="pl-10 bg-background/50 border-input/50"
+                        />
+                      </div>
                     </div>
                     
                     <div className="space-y-2">
@@ -231,7 +265,7 @@ const Login = () => {
                           placeholder="seu@email.com"
                           value={loginEmail}
                           onChange={(e) => setLoginEmail(e.target.value)}
-                          className="pl-10 bg-vet-primary/20 border-vet-primary/30"
+                          className="pl-10 bg-background/50 border-input/50"
                         />
                       </div>
                     </div>
@@ -263,7 +297,7 @@ const Login = () => {
                           placeholder="Digite o código recebido por e-mail"
                           value={loginCode}
                           onChange={(e) => setLoginCode(e.target.value)}
-                          className="pl-10 bg-vet-primary/20 border-vet-primary/30"
+                          className="pl-10 bg-background/50 border-input/50"
                         />
                       </div>
                       <p className="text-xs text-gray-400">
@@ -306,14 +340,17 @@ const Login = () => {
                 <form onSubmit={handleRegister} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="register-company-code">Código da Empresa</Label>
-                    <Input
-                      id="register-company-code"
-                      type="text"
-                      placeholder="Código da empresa"
-                      value={registerCompanyCode}
-                      onChange={(e) => setRegisterCompanyCode(e.target.value)}
-                      className="bg-vet-primary/20 border-vet-primary/30"
-                    />
+                    <div className="relative">
+                      <Building className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                      <Input
+                        id="register-company-code"
+                        type="text"
+                        placeholder="Código da empresa"
+                        value={registerCompanyCode}
+                        onChange={(e) => setRegisterCompanyCode(e.target.value)}
+                        className="pl-10 bg-background/50 border-input/50"
+                      />
+                    </div>
                   </div>
                   
                   <div className="space-y-2">
@@ -324,7 +361,7 @@ const Login = () => {
                       placeholder="Digite seu nome completo"
                       value={registerName}
                       onChange={(e) => setRegisterName(e.target.value)}
-                      className="bg-vet-primary/20 border-vet-primary/30"
+                      className="bg-background/50 border-input/50"
                     />
                   </div>
                   
@@ -338,7 +375,7 @@ const Login = () => {
                         placeholder="seu@email.com"
                         value={registerEmail}
                         onChange={(e) => setRegisterEmail(e.target.value)}
-                        className="pl-10 bg-vet-primary/20 border-vet-primary/30"
+                        className="pl-10 bg-background/50 border-input/50"
                       />
                     </div>
                   </div>
@@ -352,7 +389,7 @@ const Login = () => {
                       value={registerWhatsapp}
                       onChange={handleWhatsappChange}
                       maxLength={15}
-                      className="bg-vet-primary/20 border-vet-primary/30"
+                      className="bg-background/50 border-input/50"
                     />
                   </div>
                   

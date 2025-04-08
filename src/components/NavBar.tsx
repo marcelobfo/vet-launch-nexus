@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { UserCircle, LogOut, Sun, Moon, Menu } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/contexts/AuthContext"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,19 +29,14 @@ interface NavBarProps {
 export function NavBar({ isDarkTheme, setIsDarkTheme }: NavBarProps) {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const userEmail = localStorage.getItem("userEmail") || "Usuário";
+  const { user, company, signOut } = useAuth();
 
-  const handleLogout = () => {
-    localStorage.removeItem("isLoggedIn");
-    localStorage.removeItem("userEmail");
-    localStorage.removeItem("companyCode");
-
+  const handleLogout = async () => {
+    await signOut();
     toast({
       title: "Logout realizado",
       description: "Você foi desconectado com sucesso.",
     });
-
-    navigate('/login');
   };
 
   const ModeToggle = ({ isDarkTheme, setIsDarkTheme }: { isDarkTheme: boolean; setIsDarkTheme: (value: boolean) => void }) => {
@@ -86,9 +82,9 @@ export function NavBar({ isDarkTheme, setIsDarkTheme }: NavBarProps) {
               <DropdownMenuContent className="w-56" align="end" forceMount>
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">{userEmail}</p>
+                    <p className="text-sm font-medium leading-none">{user?.name || 'Usuário'}</p>
                     <p className="text-xs leading-none text-muted-foreground">
-                      {localStorage.getItem("companyCode") || "Empresa"}
+                      {company?.name || 'Empresa'}
                     </p>
                   </div>
                 </DropdownMenuLabel>

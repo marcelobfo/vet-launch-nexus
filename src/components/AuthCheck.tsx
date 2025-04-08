@@ -1,36 +1,14 @@
 
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React from 'react';
+import { Navigate } from 'react-router-dom';
 import { Card } from "@/components/ui/card";
+import { useAuth } from '@/contexts/AuthContext';
 
 const AuthCheck: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const navigate = useNavigate();
-  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
+  const { user, company, isLoading } = useAuth();
   
-  useEffect(() => {
-    // Check if user is authenticated
-    const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
-    
-    if (!isLoggedIn) {
-      navigate('/login');
-      return;
-    }
-    
-    // Check company code
-    const companyCode = localStorage.getItem("companyCode");
-    
-    // For demo purposes, we're accepting any company code
-    if (companyCode) {
-      setIsAuthorized(true);
-    } else {
-      // If no company code found, redirect to login
-      localStorage.removeItem("isLoggedIn");
-      navigate('/login');
-    }
-  }, [navigate]);
-  
-  // Loading state
-  if (isAuthorized === null) {
+  // Mostra o loading enquanto verifica a autenticação
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-vet-dark">
         <Card className="p-6 text-center bg-card border-gray-800">
@@ -40,13 +18,13 @@ const AuthCheck: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     );
   }
   
-  // Authorized
-  if (isAuthorized) {
-    return <>{children}</>;
+  // Se não estiver autenticado, redireciona para o login
+  if (!user || !company) {
+    return <Navigate to="/login" replace />;
   }
   
-  // This should never render as we redirect in the useEffect
-  return null;
+  // Se estiver autenticado, renderiza os filhos
+  return <>{children}</>;
 };
 
 export default AuthCheck;

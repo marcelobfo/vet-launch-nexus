@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { NavBar } from '@/components/NavBar';
 import Hero from '@/components/Hero';
 import LaunchStrategy from '@/components/LaunchStrategy';
@@ -8,9 +8,15 @@ import Automation from '@/components/Automation';
 import Costs from '@/components/Costs';
 import FinalCta from '@/components/FinalCta';
 import Footer from '@/components/Footer';
+import { useAuth } from '@/contexts/AuthContext';
 
-const Index = () => {
-  const [isDarkTheme, setIsDarkTheme] = useState(false);
+interface IndexProps {
+  isDarkTheme: boolean;
+  setIsDarkTheme: (isDarkTheme: boolean) => void;
+}
+
+const Index = ({ isDarkTheme, setIsDarkTheme }: IndexProps) => {
+  const { user, company } = useAuth();
   
   useEffect(() => {
     document.title = "Vet Launch Nexus | Estratégia de Lançamento para Veterinários";
