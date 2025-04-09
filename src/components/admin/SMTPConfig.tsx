@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,11 +14,11 @@ const SMTPConfig = () => {
   const { company } = useAuth();
   
   const [config, setConfig] = useState({
-    smtp_host: '',
-    smtp_port: '587',
-    smtp_user: '',
-    smtp_pass: '',
-    smtp_from: '',
+    smtp_host: 'smtp.hostinger.com',
+    smtp_port: '22',
+    smtp_user: 'contato@technedigital.com.br',
+    smtp_pass: 'Celo10.20.30',
+    smtp_from: 'contato@technedigital.com.br',
     smtp_secure: true,
     webhook_url: ''
   });
@@ -32,11 +31,11 @@ const SMTPConfig = () => {
   useEffect(() => {
     if (company) {
       setConfig({
-        smtp_host: company.smtp_host || '',
-        smtp_port: company.smtp_port?.toString() || '587',
-        smtp_user: company.smtp_user || '',
-        smtp_pass: company.smtp_pass || '',
-        smtp_from: company.smtp_from || '',
+        smtp_host: company.smtp_host || 'smtp.hostinger.com',
+        smtp_port: company.smtp_port?.toString() || '22',
+        smtp_user: company.smtp_user || 'contato@technedigital.com.br',
+        smtp_pass: company.smtp_pass || 'Celo10.20.30',
+        smtp_from: company.smtp_from || 'contato@technedigital.com.br',
         smtp_secure: true,
         webhook_url: company.webhook_url || ''
       });

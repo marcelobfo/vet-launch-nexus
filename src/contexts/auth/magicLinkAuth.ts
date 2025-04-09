@@ -54,14 +54,14 @@ export const sendMagicLink = async (email: string, companyCode: string) => {
     const token = Math.random().toString(36).substring(2, 10).toUpperCase();
     const expires_at = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
     
-    // Store the token in the database
+    // Store the token in the database - FIX: Convert expires_at to ISO string
     const { error: tokenError } = await supabase
       .from('access_codes')
       .insert({
         email,
         code: token,
         company_id: companyData.id,
-        expires_at,
+        expires_at: expires_at.toISOString(),
         is_used: false
       });
 
