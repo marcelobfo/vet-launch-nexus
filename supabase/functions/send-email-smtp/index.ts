@@ -62,6 +62,7 @@ serve(async (req) => {
     const client = new SmtpClient();
     
     try {
+      console.log("Connecting to SMTP server:", company.smtp_host, "port:", company.smtp_port || 587);
       await client.connectTLS({
         hostname: company.smtp_host,
         port: company.smtp_port || 587,
@@ -69,12 +70,15 @@ serve(async (req) => {
         password: company.smtp_pass,
       });
       
+      console.log("Connected to SMTP server, sending email to:", to, "from:", company.smtp_from);
+      
       // Send email
       await client.send({
         from: company.smtp_from,
         to: [to],
         subject: subject,
-        content: body,
+        content: "text/html",
+        html: body,
       });
       
       await client.close();

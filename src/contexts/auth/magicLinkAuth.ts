@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export const sendMagicLink = async (email: string, companyCode: string) => {
@@ -53,7 +54,7 @@ export const sendMagicLink = async (email: string, companyCode: string) => {
     const token = Math.random().toString(36).substring(2, 10).toUpperCase();
     const expires_at = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
     
-    // Store the token in the database - FIX: Convert expires_at to ISO string
+    // Store the token in the database - Convert expires_at to ISO string
     const { error: tokenError } = await supabase
       .from('access_codes')
       .insert({
@@ -72,8 +73,11 @@ export const sendMagicLink = async (email: string, companyCode: string) => {
       };
     }
 
+    // Get the current domain/origin properly
+    const currentOrigin = window.location.origin;
+
     // Create magic link URL
-    const loginUrl = `${window.location.origin}/auth/callback?email=${encodeURIComponent(email)}&code=${token}&companyCode=${companyCode}`;
+    const loginUrl = `${currentOrigin}/auth/callback?email=${encodeURIComponent(email)}&code=${token}&companyCode=${companyCode}`;
     
     // Generate email HTML content
     const emailBody = `
@@ -122,11 +126,14 @@ export const sendMagicLink = async (email: string, companyCode: string) => {
 // Fallback to Supabase's built-in magic link
 const sendSupabaseMagicLink = async (email: string, companyData: any) => {
   try {
+    // Get the current domain/origin properly
+    const currentOrigin = window.location.origin;
+    
     // Send magic link using Supabase
     const { error: magicLinkError } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: `${currentOrigin}/auth/callback`,
         data: {
           company_id: companyData.id,
           company_code: companyData.code
