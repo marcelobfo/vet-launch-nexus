@@ -8,8 +8,11 @@ import NotFound from '@/pages/NotFound';
 import { AuthProvider } from '@/contexts/AuthContext';
 import AuthCheck from '@/components/AuthCheck';
 import AuthCallback from '@/components/AuthCallback';
+import { useState } from 'react';
 
 function App() {
+  const [isDarkTheme, setIsDarkTheme] = useState(true);
+
   return (
     <BrowserRouter>
       <AuthProvider>
@@ -20,7 +23,7 @@ function App() {
             path="/" 
             element={
               <AuthCheck>
-                <Index />
+                <Index isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
               </AuthCheck>
             } 
           />
@@ -28,7 +31,7 @@ function App() {
             path="/admin/*" 
             element={
               <AuthCheck>
-                <Admin />
+                <Admin isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
               </AuthCheck>
             } 
           />
