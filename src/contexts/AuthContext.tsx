@@ -1,8 +1,9 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase, User, Company } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { User, Company } from '@/lib/supabase';
 
 interface AuthState {
   user: User | null;
@@ -15,7 +16,8 @@ interface AuthContextType extends AuthState {
   signOut: () => Promise<void>;
   sendLoginCode: (email: string, companyCode: string) => Promise<{ success: boolean; message?: string }>;
   verifyLoginCode: (email: string, code: string, companyCode: string) => Promise<{ success: boolean; message?: string }>;
-  register: (userData: { name: string; email: string; whatsapp: string; companyCode: string }) => Promise<{ success: boolean; message?: string }>;
+  sendMagicLink: (email: string, companyCode: string) => Promise<{ success: boolean; message?: string }>;
+  register: (userData: { name: string; email: string; whatsapp: string; companyName: string }) => Promise<{ success: boolean; message?: string; companyCode?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -80,6 +82,82 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       authListener.data.subscription.unsubscribe();
     };
   }, []);
+
+  const sendMagicLink = async (email: string, companyCode: string) => {
+    try {
+      // Verificar se a empresa existe com o código fornecido
+      const { data: companyData, error: companyError } = await supabase
+        .from('companies')
+        .select('*')
+        .eq('code', companyCode)
+        .eq('is_active', true)
+        .single();
+      
+      if (companyError || !companyData) {
+        return { 
+          success: false, 
+          message: 'Código de empresa inválido ou empresa inativa.'
+        };
+      }
+
+      // Verificar se o usuário existe nessa empresa
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', email)
+        .eq('company_id', companyData.id)
+        .eq('is_active', true)
+        .single();
+
+      if (userError && userError.code !== 'PGRST116') { // Código de erro quando não encontra resultados
+        console.error("Erro ao verificar usuário:", userError);
+        return { 
+          success: false, 
+          message: 'Ocorreu um erro ao verificar o usuário. Tente novamente.'
+        };
+      }
+
+      // Se o usuário não existe e a empresa não permite auto-cadastro, retornar erro
+      if (!userData && !companyData.allow_signup) {
+        return {
+          success: false,
+          message: 'Usuário não encontrado para esta empresa. Entre em contato com o administrador.'
+        };
+      }
+
+      // Enviar magic link
+      const { error: magicLinkError } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          data: {
+            company_id: companyData.id,
+            company_code: companyCode
+          }
+        }
+      });
+
+      if (magicLinkError) {
+        console.error("Erro ao enviar magic link:", magicLinkError);
+        return { 
+          success: false, 
+          message: 'Não foi possível enviar o link de acesso. Tente novamente.'
+        };
+      }
+
+      // Se chegou até aqui, o magic link foi enviado com sucesso
+      return { 
+        success: true, 
+        message: 'Link de acesso enviado com sucesso para seu e-mail.'
+      };
+    } catch (error) {
+      console.error("Erro ao enviar magic link:", error);
+      return { 
+        success: false, 
+        message: 'Ocorreu um erro ao processar sua solicitação. Tente novamente.'
+      };
+    }
+  };
 
   const sendLoginCode = async (email: string, companyCode: string) => {
     try {
@@ -330,21 +408,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const signIn = async (email: string, companyCode: string) => {
-    // Método para compatibilidade com a versão antiga
-    // Agora usa o fluxo de envio de código + verificação
-    const sendResult = await sendLoginCode(email, companyCode);
-    if (!sendResult.success) {
-      return sendResult;
-    }
-    
-    return { 
-      success: true, 
-      message: 'Código de acesso enviado para seu e-mail.'
-    };
+    // Agora usa o fluxo de envio de magic link por padrão
+    return await sendMagicLink(email, companyCode);
   };
 
   const signOut = async () => {
     localStorage.removeItem('session');
+    // Fazer logout também no Supabase Auth
+    await supabase.auth.signOut();
     setAuthState({
       user: null,
       company: null,
@@ -353,96 +424,93 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     navigate('/login');
   };
 
-  const register = async (userData: { name: string; email: string; whatsapp: string; companyCode: string }) => {
+  const register = async (userData: { name: string; email: string; whatsapp: string; companyName: string }) => {
     try {
-      const { name, email, whatsapp, companyCode } = userData;
+      const { name, email, whatsapp, companyName } = userData;
       
-      // Verificar se a empresa existe
-      const { data: companyData, error: companyError } = await supabase
-        .from('companies')
-        .select('*')
-        .eq('code', companyCode)
-        .eq('is_active', true)
-        .single();
-      
-      if (companyError || !companyData) {
-        return { 
-          success: false, 
-          message: 'Código de empresa inválido ou empresa inativa.'
-        };
-      }
-
-      // Verificar se a empresa aceita auto-cadastro
-      if (!companyData.allow_signup) {
-        return {
-          success: false,
-          message: 'Esta empresa não permite cadastros automáticos. Entre em contato com o administrador.'
-        };
-      }
-
-      // Verificar se o email já está cadastrado na empresa
+      // Verificar se o email já está cadastrado em alguma empresa
       const { data: existingUser, error: userCheckError } = await supabase
         .from('users')
-        .select('id')
+        .select('id, company:companies!inner(name, code)')
         .eq('email', email)
-        .eq('company_id', companyData.id)
-        .single();
+        .limit(1);
 
-      if (existingUser) {
+      if (existingUser && existingUser.length > 0) {
         return {
           success: false,
-          message: 'Este e-mail já está cadastrado nesta empresa.'
+          message: `Este e-mail já está cadastrado na empresa ${existingUser[0].company.name}.`
         };
       }
 
-      // Cadastrar o usuário
+      // Gerar código único para a empresa
+      const companyCode = generateCompanyCode();
+      
+      // Cadastrar a empresa
+      const { data: newCompany, error: companyError } = await supabase
+        .from('companies')
+        .insert({
+          name: companyName,
+          code: companyCode,
+          allow_signup: true,
+          is_active: true
+        })
+        .select()
+        .single();
+
+      if (companyError) {
+        console.error("Erro ao criar empresa:", companyError);
+        return { 
+          success: false, 
+          message: 'Não foi possível criar a empresa. Tente novamente ou contate o suporte.'
+        };
+      }
+
+      // Cadastrar o usuário como admin da empresa
       const { error: createError } = await supabase
         .from('users')
         .insert({
           email,
           name,
           whatsapp,
-          company_id: companyData.id,
-          role: 'user', // Papel básico
+          company_id: newCompany.id,
+          role: 'admin', // Papel de administrador
           is_active: true
         });
 
       if (createError) {
         console.error("Erro ao criar usuário:", createError);
+        // Se falhar ao criar o usuário, remover a empresa criada
+        await supabase
+          .from('companies')
+          .delete()
+          .eq('id', newCompany.id);
+          
         return { 
           success: false, 
           message: 'Não foi possível criar seu cadastro. Tente novamente ou contate o suporte.'
         };
       }
 
-      // Se a empresa tiver webhook configurado, enviar os dados para ele
-      if (companyData.webhook_url) {
-        try {
-          await fetch(companyData.webhook_url, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              type: 'new_user',
-              data: {
-                name,
-                email,
-                whatsapp,
-                companyCode,
-                timestamp: new Date().toISOString()
-              }
-            }),
-          });
-        } catch (webhookError) {
-          console.error("Erro ao enviar dados para webhook:", webhookError);
-          // Não vamos falhar o cadastro se o webhook falhar
+      // Enviar magic link para o primeiro acesso
+      const { error: magicLinkError } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          data: {
+            company_id: newCompany.id,
+            company_code: companyCode
+          }
         }
+      });
+
+      if (magicLinkError) {
+        console.error("Erro ao enviar magic link:", magicLinkError);
       }
 
       return { 
         success: true, 
-        message: 'Cadastro realizado com sucesso! Faça login para continuar.'
+        message: 'Cadastro realizado com sucesso! Verifique seu e-mail para acessar o sistema.',
+        companyCode
       };
     } catch (error) {
       console.error("Erro no cadastro:", error);
@@ -453,6 +521,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  // Função para gerar um código único de empresa (6 caracteres alfanuméricos)
+  const generateCompanyCode = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -461,6 +539,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         signOut,
         sendLoginCode,
         verifyLoginCode,
+        sendMagicLink,
         register
       }}
     >

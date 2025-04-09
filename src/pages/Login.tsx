@@ -7,27 +7,28 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, Lock, UserPlus, Send, ArrowRight, Building } from "lucide-react";
+import { Mail, Building, UserPlus, Send, ArrowRight } from "lucide-react";
 import { useAuth } from '@/contexts/AuthContext';
 
 const Login = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { sendLoginCode, verifyLoginCode, register, user } = useAuth();
+  const { sendMagicLink, register, user } = useAuth();
   const [activeTab, setActiveTab] = useState<"login" | "register">("login");
   const [loading, setLoading] = useState(false);
-  const [companyCode, setCompanyCode] = useState("");
   
   // Login state
   const [loginEmail, setLoginEmail] = useState("");
-  const [loginCode, setLoginCode] = useState("");
-  const [codeSent, setCodeSent] = useState(false);
+  const [companyCode, setCompanyCode] = useState("");
+  const [magicLinkSent, setMagicLinkSent] = useState(false);
   
   // Register state
   const [registerName, setRegisterName] = useState("");
   const [registerEmail, setRegisterEmail] = useState("");
   const [registerWhatsapp, setRegisterWhatsapp] = useState("");
-  const [registerCompanyCode, setRegisterCompanyCode] = useState("");
+  const [registerCompanyName, setRegisterCompanyName] = useState("");
+  const [registrationComplete, setRegistrationComplete] = useState(false);
+  const [newCompanyCode, setNewCompanyCode] = useState("");
   
   // Redirecionar se já estiver autenticado
   if (user) {
@@ -35,13 +36,13 @@ const Login = () => {
     return null;
   }
   
-  const handleSendCode = async (e: React.FormEvent) => {
+  const handleSendMagicLink = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!loginEmail.trim()) {
       toast({
         title: "E-mail necessário",
-        description: "Por favor, insira seu e-mail para receber o código de acesso.",
+        description: "Por favor, insira seu e-mail para receber o link de acesso.",
         variant: "destructive"
       });
       return;
@@ -59,65 +60,24 @@ const Login = () => {
     setLoading(true);
     
     try {
-      const result = await sendLoginCode(loginEmail, companyCode);
+      const result = await sendMagicLink(loginEmail, companyCode);
       
       if (result.success) {
-        setCodeSent(true);
+        setMagicLinkSent(true);
         toast({
-          title: "Código enviado",
-          description: result.message || `Um código de acesso foi enviado para ${loginEmail}.`,
+          title: "Link enviado",
+          description: result.message || `Um link de acesso foi enviado para ${loginEmail}.`,
         });
       } else {
         toast({
-          title: "Erro ao enviar código",
-          description: result.message || "Não foi possível enviar o código. Verifique as informações e tente novamente.",
+          title: "Erro ao enviar link",
+          description: result.message || "Não foi possível enviar o link. Verifique as informações e tente novamente.",
           variant: "destructive"
         });
       }
     } catch (error) {
       toast({
-        title: "Erro ao enviar código",
-        description: "Ocorreu um erro inesperado. Tente novamente mais tarde.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!loginCode.trim()) {
-      toast({
-        title: "Código necessário",
-        description: "Por favor, insira o código recebido por e-mail.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    setLoading(true);
-    
-    try {
-      const result = await verifyLoginCode(loginEmail, loginCode, companyCode);
-      
-      if (result.success) {
-        toast({
-          title: "Login realizado com sucesso",
-          description: "Você será redirecionado para o dashboard.",
-        });
-        navigate("/");
-      } else {
-        toast({
-          title: "Erro ao fazer login",
-          description: result.message || "Código inválido ou expirado. Por favor, tente novamente.",
-          variant: "destructive"
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Erro ao fazer login",
+        title: "Erro ao enviar link",
         description: "Ocorreu um erro inesperado. Tente novamente mais tarde.",
         variant: "destructive"
       });
@@ -129,7 +89,7 @@ const Login = () => {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!registerName.trim() || !registerEmail.trim() || !registerWhatsapp.trim() || !registerCompanyCode.trim()) {
+    if (!registerName.trim() || !registerEmail.trim() || !registerWhatsapp.trim() || !registerCompanyName.trim()) {
       toast({
         title: "Campos obrigatórios",
         description: "Todos os campos são obrigatórios para o cadastro.",
@@ -156,25 +116,25 @@ const Login = () => {
         name: registerName,
         email: registerEmail,
         whatsapp: registerWhatsapp,
-        companyCode: registerCompanyCode
+        companyName: registerCompanyName
       });
       
       if (result.success) {
         toast({
           title: "Cadastro realizado com sucesso",
-          description: result.message || "Você pode fazer login agora.",
+          description: result.message || "Um link de acesso foi enviado para seu e-mail.",
         });
         
-        // Preencher campos de login e mudar para a aba de login
-        setActiveTab("login");
-        setLoginEmail(registerEmail);
-        setCompanyCode(registerCompanyCode);
+        setRegistrationComplete(true);
+        if (result.companyCode) {
+          setNewCompanyCode(result.companyCode);
+        }
         
         // Limpar campos de registro
         setRegisterName("");
         setRegisterEmail("");
         setRegisterWhatsapp("");
-        setRegisterCompanyCode("");
+        setRegisterCompanyName("");
       } else {
         toast({
           title: "Erro ao cadastrar",
@@ -213,6 +173,12 @@ const Login = () => {
     setRegisterWhatsapp(formatted);
   };
   
+  const resetRegistrationForm = () => {
+    setRegistrationComplete(false);
+    setNewCompanyCode("");
+    setActiveTab("login");
+  };
+  
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-gray-900 to-gray-800 p-4">
       <div className="w-full max-w-md">
@@ -238,8 +204,8 @@ const Login = () => {
               
               {/* Login Tab */}
               <TabsContent value="login">
-                {!codeSent ? (
-                  <form onSubmit={handleSendCode} className="space-y-4">
+                {!magicLinkSent ? (
+                  <form onSubmit={handleSendMagicLink} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="company-code">Código da Empresa</Label>
                       <div className="relative">
@@ -280,134 +246,140 @@ const Login = () => {
                       ) : (
                         <>
                           <Send className="mr-2 h-4 w-4" />
-                          Enviar Código de Acesso
+                          Enviar Link de Acesso
                         </>
                       )}
                     </Button>
                   </form>
                 ) : (
-                  <form onSubmit={handleLogin} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="access-code">Código de Acesso</Label>
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                        <Input
-                          id="access-code"
-                          type="text"
-                          placeholder="Digite o código recebido por e-mail"
-                          value={loginCode}
-                          onChange={(e) => setLoginCode(e.target.value)}
-                          className="pl-10 bg-background/50 border-input/50"
-                        />
-                      </div>
-                      <p className="text-xs text-gray-400">
-                        Um código de acesso foi enviado para {loginEmail}
-                      </p>
+                  <div className="space-y-4 text-center">
+                    <div className="rounded-full bg-green-100 p-3 w-16 h-16 flex items-center justify-center mx-auto">
+                      <Mail className="h-8 w-8 text-green-600" />
                     </div>
                     
-                    <div className="flex gap-2">
-                      <Button 
-                        type="button" 
-                        variant="outline" 
-                        className="flex-1"
-                        onClick={() => setCodeSent(false)}
-                        disabled={loading}
-                      >
-                        Voltar
-                      </Button>
-                      
-                      <Button 
-                        type="submit" 
-                        className="flex-1 bg-vet-secondary hover:bg-vet-secondary/90"
-                        disabled={loading}
-                      >
-                        {loading ? (
-                          "Verificando..."
-                        ) : (
-                          <>
-                            <ArrowRight className="mr-2 h-4 w-4" />
-                            Entrar
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </form>
+                    <h3 className="text-lg font-medium">Link enviado!</h3>
+                    
+                    <p className="text-gray-400">
+                      Enviamos um link de acesso para <strong>{loginEmail}</strong>.<br />
+                      Por favor, verifique seu e-mail e clique no link para acessar o sistema.
+                    </p>
+                    
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={() => setMagicLinkSent(false)}
+                      className="mt-4"
+                    >
+                      Voltar
+                    </Button>
+                  </div>
                 )}
               </TabsContent>
               
               {/* Register Tab */}
               <TabsContent value="register">
-                <form onSubmit={handleRegister} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="register-company-code">Código da Empresa</Label>
-                    <div className="relative">
-                      <Building className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                {!registrationComplete ? (
+                  <form onSubmit={handleRegister} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="register-name">Nome Completo</Label>
                       <Input
-                        id="register-company-code"
+                        id="register-name"
                         type="text"
-                        placeholder="Código da empresa"
-                        value={registerCompanyCode}
-                        onChange={(e) => setRegisterCompanyCode(e.target.value)}
-                        className="pl-10 bg-background/50 border-input/50"
+                        placeholder="Digite seu nome completo"
+                        value={registerName}
+                        onChange={(e) => setRegisterName(e.target.value)}
+                        className="bg-background/50 border-input/50"
                       />
                     </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="register-name">Nome Completo</Label>
-                    <Input
-                      id="register-name"
-                      type="text"
-                      placeholder="Digite seu nome completo"
-                      value={registerName}
-                      onChange={(e) => setRegisterName(e.target.value)}
-                      className="bg-background/50 border-input/50"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="register-email">E-mail</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="register-email">E-mail</Label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                        <Input
+                          id="register-email"
+                          type="email"
+                          placeholder="seu@email.com"
+                          value={registerEmail}
+                          onChange={(e) => setRegisterEmail(e.target.value)}
+                          className="pl-10 bg-background/50 border-input/50"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="register-whatsapp">WhatsApp</Label>
                       <Input
-                        id="register-email"
-                        type="email"
-                        placeholder="seu@email.com"
-                        value={registerEmail}
-                        onChange={(e) => setRegisterEmail(e.target.value)}
-                        className="pl-10 bg-background/50 border-input/50"
+                        id="register-whatsapp"
+                        type="tel"
+                        placeholder="(XX) XXXXX-XXXX"
+                        value={registerWhatsapp}
+                        onChange={handleWhatsappChange}
+                        maxLength={15}
+                        className="bg-background/50 border-input/50"
                       />
                     </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="register-whatsapp">WhatsApp</Label>
-                    <Input
-                      id="register-whatsapp"
-                      type="tel"
-                      placeholder="(XX) XXXXX-XXXX"
-                      value={registerWhatsapp}
-                      onChange={handleWhatsappChange}
-                      maxLength={15}
-                      className="bg-background/50 border-input/50"
-                    />
-                  </div>
-                  
-                  <Button 
-                    type="submit" 
-                    className="w-full bg-vet-primary hover:bg-vet-primary/90"
-                    disabled={loading}
-                  >
-                    {loading ? (
-                      "Processando..."
-                    ) : (
-                      <>
-                        <UserPlus className="mr-2 h-4 w-4" />
-                        Cadastrar
-                      </>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="register-company-name">Nome da Empresa</Label>
+                      <Input
+                        id="register-company-name"
+                        type="text"
+                        placeholder="Digite o nome da sua empresa"
+                        value={registerCompanyName}
+                        onChange={(e) => setRegisterCompanyName(e.target.value)}
+                        className="bg-background/50 border-input/50"
+                      />
+                    </div>
+                    
+                    <Button 
+                      type="submit" 
+                      className="w-full bg-vet-primary hover:bg-vet-primary/90"
+                      disabled={loading}
+                    >
+                      {loading ? (
+                        "Processando..."
+                      ) : (
+                        <>
+                          <UserPlus className="mr-2 h-4 w-4" />
+                          Cadastrar Empresa
+                        </>
+                      )}
+                    </Button>
+                  </form>
+                ) : (
+                  <div className="space-y-4 text-center">
+                    <div className="rounded-full bg-green-100 p-3 w-16 h-16 flex items-center justify-center mx-auto">
+                      <Building className="h-8 w-8 text-green-600" />
+                    </div>
+                    
+                    <h3 className="text-lg font-medium">Empresa Cadastrada!</h3>
+                    
+                    <p className="text-gray-400">
+                      Sua empresa foi cadastrada com sucesso.<br />
+                      Enviamos um link de acesso para <strong>{registerEmail}</strong>.
+                    </p>
+                    
+                    {newCompanyCode && (
+                      <div className="mt-4 p-4 bg-gray-800/50 rounded-md">
+                        <p className="text-sm text-gray-400 mb-2">Código da empresa:</p>
+                        <p className="text-xl font-mono font-bold tracking-wider">{newCompanyCode}</p>
+                        <p className="text-xs text-gray-400 mt-2">
+                          Guarde este código. Ele será necessário para que outros usuários acessem sua empresa.
+                        </p>
+                      </div>
                     )}
-                  </Button>
-                </form>
+                    
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={resetRegistrationForm}
+                      className="mt-4"
+                    >
+                      Voltar para Login
+                    </Button>
+                  </div>
+                )}
               </TabsContent>
             </Tabs>
           </CardContent>

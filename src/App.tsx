@@ -1,41 +1,43 @@
 
-import { useState } from "react";
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "./contexts/AuthContext";
-import Index from "./pages/Index";
-import Admin from "./pages/Admin";
-import Login from "./pages/Login";
-import NotFound from "./pages/NotFound";
-import AuthCheck from "./components/AuthCheck";
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { Toaster } from '@/components/ui/toaster';
+import Index from '@/pages/Index';
+import Login from '@/pages/Login';
+import Admin from '@/pages/Admin';
+import NotFound from '@/pages/NotFound';
+import { AuthProvider } from '@/contexts/AuthContext';
+import AuthCheck from '@/components/AuthCheck';
+import AuthCallback from '@/components/AuthCallback';
 
-const queryClient = new QueryClient();
-
-const App = () => {
-  const [isDarkTheme, setIsDarkTheme] = useState(false);
-
+function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
+    <BrowserRouter>
+      <AuthProvider>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route 
+            path="/" 
+            element={
+              <AuthCheck>
+                <Index />
+              </AuthCheck>
+            } 
+          />
+          <Route 
+            path="/admin/*" 
+            element={
+              <AuthCheck>
+                <Admin />
+              </AuthCheck>
+            } 
+          />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
         <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AuthProvider>
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route path="/" element={<AuthCheck><Index isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} /></AuthCheck>} />
-              <Route path="/admin" element={<AuthCheck><Admin isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} /></AuthCheck>} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </AuthProvider>
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
+      </AuthProvider>
+    </BrowserRouter>
   );
-};
+}
 
 export default App;
