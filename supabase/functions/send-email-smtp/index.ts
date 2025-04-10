@@ -21,9 +21,11 @@ serve(async (req) => {
   }
 
   try {
+    console.log("Received email request");
     const { to, subject, body, companyId } = await req.json() as EmailRequest;
     
     if (!to || !subject || !body || !companyId) {
+      console.error("Missing required parameters:", { to, subject, body: body ? "exists" : "missing", companyId });
       return new Response(
         JSON.stringify({ error: "Missing required parameters" }),
         { 
@@ -37,11 +39,13 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") as string;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") as string;
     
+    console.log("Creating Supabase client");
     // Create a Supabase client
     const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
     const supabaseAdmin = createClient(supabaseUrl, supabaseKey);
     
     // Get company SMTP settings
+    console.log("Getting company SMTP settings for company ID:", companyId);
     const { data: company, error: companyError } = await supabaseAdmin
       .from("companies")
       .select("smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from")
@@ -50,6 +54,7 @@ serve(async (req) => {
     
     if (companyError || !company || !company.smtp_host) {
       console.error("Error getting company SMTP settings:", companyError);
+      console.log("Company data:", company);
       return new Response(
         JSON.stringify({ error: "Invalid company or SMTP settings not configured" }),
         { 
@@ -78,7 +83,7 @@ serve(async (req) => {
         from: company.smtp_from,
         to: [to],
         subject: subject,
-        content: "text/html",
+        content: "text/html", // Explicitly set HTML format
         html: body,
       });
       
