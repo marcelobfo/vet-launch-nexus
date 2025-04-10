@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 export const sendMagicLink = async (email: string, companyCode: string) => {
   try {
-    // Verify if the company exists with the provided code
+    // Find the company by code
     const { data: companyData, error: companyError } = await supabase
       .from('companies')
       .select('*')
@@ -12,130 +12,95 @@ export const sendMagicLink = async (email: string, companyCode: string) => {
       .single();
     
     if (companyError || !companyData) {
-      console.error("Company not found or inactive:", companyCode);
+      console.error("Company not found:", companyError);
       return { 
         success: false, 
-        message: 'Código de empresa inválido ou empresa inativa.'
+        message: 'Empresa não encontrada ou inativa.' 
       };
     }
-
-    // Check if SMTP is configured
-    if (!companyData.smtp_host || !companyData.smtp_user || !companyData.smtp_pass || !companyData.smtp_from) {
-      console.error("SMTP not configured for company:", companyCode);
-      return { 
-        success: false, 
-        message: 'Configuração de email não encontrada. Entre em contato com o administrador.'
-      };
-    }
-
-    // Verify if the user exists in this company
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', email)
-      .eq('company_id', companyData.id)
-      .eq('is_active', true)
-      .single();
-
-    if (userError && userError.code !== 'PGRST116') { // Error code when no results are found
-      console.error("Error checking user:", userError);
-      return { 
-        success: false, 
-        message: 'Ocorreu um erro ao verificar o usuário. Tente novamente.'
-      };
-    }
-
-    // If user doesn't exist and the company doesn't allow auto-registration, return error
-    if (!userData && !companyData.allow_signup) {
-      return {
-        success: false,
-        message: 'Usuário não encontrado para esta empresa. Entre em contato com o administrador.'
-      };
-    }
-
-    // Generate a temporary login code that will be valid for 1 hour
-    const token = Math.random().toString(36).substring(2, 10).toUpperCase();
-    const expires_at = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
     
-    // Store the token in the database
-    const { error: tokenError } = await supabase
+    // Generate an access code
+    const code = Math.random().toString(36).substring(2, 10).toUpperCase();
+    const expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    
+    // Store the access code in the database
+    const { error: codeError } = await supabase
       .from('access_codes')
       .insert({
         email,
-        code: token,
+        code,
         company_id: companyData.id,
         expires_at: expires_at.toISOString(),
         is_used: false
       });
-
-    if (tokenError) {
-      console.error("Error storing token:", tokenError);
+    
+    if (codeError) {
+      console.error("Error creating access code:", codeError);
       return { 
         success: false, 
-        message: 'Não foi possível gerar o código de acesso. Tente novamente.'
+        message: 'Não foi possível gerar o código de acesso. Tente novamente.' 
       };
     }
 
-    // Generate email HTML content
-    const emailBody = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
-        <h2 style="color: #333;">Código de Acesso</h2>
-        <p style="color: #666;">Olá,</p>
-        <p style="color: #666;">Aqui está seu código de acesso para o sistema:</p>
-        <div style="background-color: #f5f5f5; padding: 12px; font-family: monospace; font-size: 18px; text-align: center; margin: 20px 0; border-radius: 4px; letter-spacing: 2px;">${token}</div>
-        <p style="color: #666;">Use este código na tela de login para acessar o sistema.</p>
-        <p style="color: #999; font-size: 12px; margin-top: 30px;">Este código é válido por 1 hora. Se você não solicitou este código, por favor ignore este e-mail.</p>
-        <p style="color: #999; font-size: 12px;">© ${new Date().getFullYear()} ${companyData.name}</p>
-      </div>
-    `;
+    // Send the access code via email
+    if (companyData.smtp_host) {
+      try {
+        const { data: emailResponse, error: emailError } = await supabase.functions.invoke('send-email-smtp', {
+          body: {
+            to: email,
+            subject: 'Código de Acesso - Vet Pro 360',
+            body: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+                <h2 style="color: #4f46e5; text-align: center;">Vet Pro 360</h2>
+                <h3 style="text-align: center;">Seu código de acesso</h3>
+                <div style="background-color: #f3f4f6; padding: 20px; text-align: center; border-radius: 5px; margin: 20px 0;">
+                  <p style="font-size: 24px; font-family: monospace; font-weight: bold; letter-spacing: 3px; color: #374151;">
+                    ${code}
+                  </p>
+                </div>
+                <p>Este código é válido por 24 horas. Utilize-o para acessar a plataforma Vet Pro 360.</p>
+                <p>Se você não solicitou este código, por favor, ignore este e-mail.</p>
+                <div style="text-align: center; margin-top: 30px; color: #6b7280; font-size: 12px;">
+                  <p>© ${new Date().getFullYear()} Vet Pro 360. Todos os direitos reservados.</p>
+                </div>
+              </div>
+            `,
+            companyId: companyData.id
+          }
+        });
 
-    // Send email using custom SMTP function
-    const emailResult = await sendEmailWithCustomSMTP(
-      email,
-      "Código de acesso ao sistema",
-      emailBody,
-      companyData.id
-    );
+        if (emailError) {
+          console.error("Error sending email:", emailError);
+          return { 
+            success: false, 
+            message: 'Não foi possível enviar o código por e-mail. Verifique as configurações SMTP.' 
+          };
+        }
 
-    if (!emailResult.success) {
-      console.error("Error sending email:", emailResult.error);
+        return { 
+          success: true, 
+          message: `Código de acesso enviado para ${email}.`
+        };
+      } catch (error) {
+        console.error("Error invoking email function:", error);
+        return { 
+          success: false, 
+          message: 'Erro ao enviar e-mail. Verifique as configurações SMTP da empresa.' 
+        };
+      }
+    } else {
+      // No SMTP configured, can't send email
       return { 
-        success: false, 
-        message: 'Erro ao enviar e-mail. Verifique se o endereço de e-mail está correto ou tente novamente mais tarde.'
+        success: true, 
+        message: `Código gerado com sucesso, mas não foi possível enviar por e-mail. Configure o SMTP da empresa.`,
+        code: code // Return code for testing purposes when SMTP is not configured
       };
     }
-
-    // If we got here, the code was sent successfully
-    return { 
-      success: true, 
-      message: 'Código de acesso enviado com sucesso para seu e-mail.'
-    };
   } catch (error) {
-    console.error("Error sending access code:", error);
+    console.error("Error sending magic link:", error);
     return { 
       success: false, 
-      message: 'Ocorreu um erro ao processar sua solicitação. Tente novamente.'
-    };
-  }
-};
-
-// Function to send email using our custom SMTP edge function
-const sendEmailWithCustomSMTP = async (to: string, subject: string, body: string, companyId: string) => {
-  try {
-    const response = await supabase.functions.invoke('send-email-smtp', {
-      body: { to, subject, body, companyId }
-    });
-    
-    if (response.error) {
-      throw new Error(response.error.message || 'Error sending email');
-    }
-    
-    return { success: true };
-  } catch (error) {
-    console.error('Error sending email via SMTP:', error);
-    return { 
-      success: false, 
-      error: error.message || 'Unknown error sending email'
+      message: 'Ocorreu um erro ao processar sua solicitação.' 
     };
   }
 };

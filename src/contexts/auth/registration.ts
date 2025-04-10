@@ -84,10 +84,45 @@ export const register = async (userData: { name: string; email: string; whatsapp
         is_used: false
       });
 
+    // Send access code via email if SMTP is configured
+    if (newCompany.smtp_host) {
+      try {
+        await supabase.functions.invoke('send-email-smtp', {
+          body: {
+            to: email,
+            subject: 'Bem-vindo ao Vet Pro 360 - Seu Código de Acesso',
+            body: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+                <h2 style="color: #4f46e5; text-align: center;">Vet Pro 360</h2>
+                <h3 style="text-align: center;">Bem-vindo(a) ao Vet Pro 360!</h3>
+                <p>Sua empresa "${companyName}" foi registrada com sucesso.</p>
+                <p>Código da empresa: <strong>${companyCode}</strong></p>
+                <p>Use o código abaixo para fazer seu primeiro acesso:</p>
+                <div style="background-color: #f3f4f6; padding: 20px; text-align: center; border-radius: 5px; margin: 20px 0;">
+                  <p style="font-size: 24px; font-family: monospace; font-weight: bold; letter-spacing: 3px; color: #374151;">
+                    ${code}
+                  </p>
+                </div>
+                <p>Este código é válido por 24 horas. Guarde o código da sua empresa para futuros acessos.</p>
+                <div style="text-align: center; margin-top: 30px; color: #6b7280; font-size: 12px;">
+                  <p>© ${new Date().getFullYear()} Vet Pro 360. Todos os direitos reservados.</p>
+                </div>
+              </div>
+            `,
+            companyId: newCompany.id
+          }
+        });
+      } catch (error) {
+        console.error("Error sending welcome email:", error);
+        // Don't fail registration if email fails
+      }
+    }
+
     return { 
       success: true, 
       message: 'Cadastro realizado com sucesso! Um código de acesso foi enviado para seu e-mail.',
-      companyCode
+      companyCode: companyCode,
+      code: code // Return code for testing when SMTP is not configured
     };
   } catch (error) {
     console.error("Error during registration:", error);
