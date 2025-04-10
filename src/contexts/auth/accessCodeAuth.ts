@@ -1,10 +1,10 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
-// Função para verificar um código de acesso
+// Function to verify an access code
 export const verifyLoginCode = async (email: string, code: string, companyCode: string) => {
   try {
-    // Buscar a empresa pelo código
+    // Find the company by code
     const { data: companyData, error: companyError } = await supabase
       .from('companies')
       .select('*')
@@ -13,13 +13,14 @@ export const verifyLoginCode = async (email: string, code: string, companyCode: 
       .single();
     
     if (companyError || !companyData) {
+      console.error("Company not found:", companyCode, companyError);
       return { 
         success: false, 
         message: 'Empresa não encontrada ou inativa.' 
       };
     }
     
-    // Buscar o código de acesso
+    // Find the access code
     const { data: accessCode, error: accessCodeError } = await supabase
       .from('access_codes')
       .select('*')
@@ -30,13 +31,14 @@ export const verifyLoginCode = async (email: string, code: string, companyCode: 
       .single();
     
     if (accessCodeError || !accessCode) {
+      console.error("Access code not found:", accessCodeError);
       return { 
         success: false, 
         message: 'Código de acesso inválido ou já utilizado.' 
       };
     }
     
-    // Verificar se o código não expirou
+    // Check if the code is expired
     const now = new Date();
     const expiresAt = new Date(accessCode.expires_at);
     
@@ -47,13 +49,13 @@ export const verifyLoginCode = async (email: string, code: string, companyCode: 
       };
     }
     
-    // Marcar o código como usado
+    // Mark the code as used
     await supabase
       .from('access_codes')
       .update({ is_used: true })
       .eq('id', accessCode.id);
     
-    // Verificar se o usuário existe
+    // Check if the user exists
     const { data: userData, error: userError } = await supabase
       .from('users')
       .select('*')
@@ -61,14 +63,14 @@ export const verifyLoginCode = async (email: string, code: string, companyCode: 
       .eq('company_id', companyData.id)
       .single();
     
-    // Se o usuário não existir e a empresa permitir auto-cadastro, criar o usuário
+    // If the user doesn't exist and the company allows auto-registration, create the user
     let user = userData;
     if (!userData && companyData.allow_signup) {
       const { data: newUser, error: createUserError } = await supabase
         .from('users')
         .insert({
           email: email,
-          name: email.split('@')[0], // Nome padrão baseado no email
+          name: email.split('@')[0], // Default name based on email
           company_id: companyData.id,
           role: 'user',
           is_active: true,
@@ -78,7 +80,7 @@ export const verifyLoginCode = async (email: string, code: string, companyCode: 
         .single();
       
       if (createUserError) {
-        console.error("Erro ao criar usuário:", createUserError);
+        console.error("Error creating user:", createUserError);
         return { 
           success: false, 
           message: 'Não foi possível criar seu usuário.' 
@@ -93,13 +95,13 @@ export const verifyLoginCode = async (email: string, code: string, companyCode: 
       };
     }
     
-    // Atualizar a data do último login
+    // Update the last login date
     await supabase
       .from('users')
       .update({ last_login: new Date().toISOString() })
       .eq('id', user.id);
     
-    // Retornar sucesso com os dados do usuário e da empresa
+    // Return success with user and company data
     return { 
       success: true, 
       message: 'Login realizado com sucesso.',
@@ -107,7 +109,7 @@ export const verifyLoginCode = async (email: string, code: string, companyCode: 
       company: companyData
     };
   } catch (error) {
-    console.error("Erro ao verificar código de acesso:", error);
+    console.error("Error verifying access code:", error);
     return { 
       success: false, 
       message: 'Ocorreu um erro ao processar sua solicitação.' 
@@ -115,9 +117,9 @@ export const verifyLoginCode = async (email: string, code: string, companyCode: 
   }
 };
 
-// Função para enviar um código de acesso por email
+// Function to send an access code via email
 export const sendLoginCode = async (email: string, companyCode: string) => {
-  // Reutilizamos a função sendMagicLink que já foi adaptada para enviar códigos
+  // Reuse the sendMagicLink function which now sends access codes
   const { sendMagicLink } = await import('./magicLinkAuth');
   return await sendMagicLink(email, companyCode);
 };

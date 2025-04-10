@@ -12,6 +12,7 @@ export const sendMagicLink = async (email: string, companyCode: string) => {
       .single();
     
     if (companyError || !companyData) {
+      console.error("Company not found or inactive:", companyCode);
       return { 
         success: false, 
         message: 'Código de empresa inválido ou empresa inativa.'

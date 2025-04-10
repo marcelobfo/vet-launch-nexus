@@ -69,25 +69,24 @@ export const register = async (userData: { name: string; email: string; whatsapp
       };
     }
 
-    // Send magic link for first access
-    const { error: magicLinkError } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-        data: {
-          company_id: newCompany.id,
-          company_code: companyCode
-        }
-      }
-    });
-
-    if (magicLinkError) {
-      console.error("Error sending magic link:", magicLinkError);
-    }
+    // Generate an access code for first login
+    const code = Math.random().toString(36).substring(2, 10).toUpperCase();
+    const expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    
+    // Store the access code in the database
+    await supabase
+      .from('access_codes')
+      .insert({
+        email,
+        code,
+        company_id: newCompany.id,
+        expires_at: expires_at.toISOString(),
+        is_used: false
+      });
 
     return { 
       success: true, 
-      message: 'Cadastro realizado com sucesso! Verifique seu e-mail para acessar o sistema.',
+      message: 'Cadastro realizado com sucesso! Um código de acesso foi enviado para seu e-mail.',
       companyCode
     };
   } catch (error) {
