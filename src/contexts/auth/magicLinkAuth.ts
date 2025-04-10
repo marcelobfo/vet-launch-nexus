@@ -21,8 +21,10 @@ export const sendMagicLink = async (email: string, companyCode: string) => {
     // Check if SMTP is configured
     if (!companyData.smtp_host || !companyData.smtp_user || !companyData.smtp_pass || !companyData.smtp_from) {
       console.error("SMTP not configured for company:", companyCode);
-      // Fall back to Supabase's built-in magic link if SMTP isn't configured
-      return await sendSupabaseMagicLink(email, companyData);
+      return { 
+        success: false, 
+        message: 'Configuração de email não encontrada. Entre em contato com o administrador.'
+      };
     }
 
     // Verify if the user exists in this company
@@ -96,8 +98,10 @@ export const sendMagicLink = async (email: string, companyCode: string) => {
 
     if (!emailResult.success) {
       console.error("Error sending email:", emailResult.error);
-      // Try fallback to Supabase's built-in magic link
-      return await sendSupabaseMagicLink(email, companyData);
+      return { 
+        success: false, 
+        message: 'Erro ao enviar e-mail. Verifique se o endereço de e-mail está correto ou tente novamente mais tarde.'
+      };
     }
 
     // If we got here, the code was sent successfully
@@ -110,45 +114,6 @@ export const sendMagicLink = async (email: string, companyCode: string) => {
     return { 
       success: false, 
       message: 'Ocorreu um erro ao processar sua solicitação. Tente novamente.'
-    };
-  }
-};
-
-// Fallback to Supabase's built-in magic link
-const sendSupabaseMagicLink = async (email: string, companyData: any) => {
-  try {
-    // Get the current domain/origin properly
-    const currentOrigin = window.location.origin;
-    
-    // Send magic link using Supabase
-    const { error: magicLinkError } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: `${currentOrigin}/auth/callback`,
-        data: {
-          company_id: companyData.id,
-          company_code: companyData.code
-        }
-      }
-    });
-
-    if (magicLinkError) {
-      console.error("Error sending Supabase magic link:", magicLinkError);
-      return { 
-        success: false, 
-        message: 'Não foi possível enviar o código de acesso. Tente novamente.'
-      };
-    }
-
-    return { 
-      success: true, 
-      message: 'Link de acesso enviado com sucesso para seu e-mail.'
-    };
-  } catch (error) {
-    console.error("Error sending Supabase magic link:", error);
-    return { 
-      success: false, 
-      message: 'Ocorreu um erro ao enviar o link de acesso. Tente novamente.'
     };
   }
 };

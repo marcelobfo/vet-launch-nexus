@@ -59,29 +59,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     checkAuth();
-
-    // Set up listener for authentication changes in Supabase
-    const authListener = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_OUT') {
-        await signOut();
-      }
-    });
-
-    return () => {
-      // Clean up listener when component unmounts
-      authListener.data.subscription.unsubscribe();
-    };
   }, []);
 
   const signIn = async (email: string, companyCode: string) => {
-    // Now uses the access code flow by default
+    // Uses the access code flow by default
     return await sendLoginCode(email, companyCode);
   };
 
   const signOut = async () => {
     clearSessionFromLocalStorage();
-    // Also logout from Supabase Auth
-    await supabase.auth.signOut();
     setAuthState({
       user: null,
       company: null,
