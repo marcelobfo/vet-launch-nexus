@@ -38,7 +38,8 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") as string;
     
     // Create a Supabase client
-    const supabaseAdmin = await createClient(supabaseUrl, supabaseKey);
+    const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+    const supabaseAdmin = createClient(supabaseUrl, supabaseKey);
     
     // Get company SMTP settings
     const { data: company, error: companyError } = await supabaseAdmin
@@ -113,9 +114,3 @@ serve(async (req) => {
     );
   }
 });
-
-// Helper to create Supabase client
-async function createClient(supabaseUrl: string, supabaseKey: string) {
-  const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
-  return createClient(supabaseUrl, supabaseKey);
-}

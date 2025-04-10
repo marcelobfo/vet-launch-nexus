@@ -7,20 +7,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, Building, UserPlus, Send, ArrowRight } from "lucide-react";
+import { Mail, Building, UserPlus, Send, ArrowRight, KeyRound } from "lucide-react";
 import { useAuth } from '@/contexts/AuthContext';
 
 const Login = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { sendMagicLink, register, user } = useAuth();
+  const { sendMagicLink, verifyLoginCode, register, user } = useAuth();
   const [activeTab, setActiveTab] = useState<"login" | "register">("login");
   const [loading, setLoading] = useState(false);
   
   // Login state
   const [loginEmail, setLoginEmail] = useState("");
   const [companyCode, setCompanyCode] = useState("");
-  const [magicLinkSent, setMagicLinkSent] = useState(false);
+  const [accessCode, setAccessCode] = useState("");
+  const [codeSent, setCodeSent] = useState(false);
   
   // Register state
   const [registerName, setRegisterName] = useState("");
@@ -36,13 +37,13 @@ const Login = () => {
     return null;
   }
   
-  const handleSendMagicLink = async (e: React.FormEvent) => {
+  const handleSendAccessCode = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!loginEmail.trim()) {
       toast({
         title: "E-mail necessário",
-        description: "Por favor, insira seu e-mail para receber o link de acesso.",
+        description: "Por favor, insira seu e-mail para receber o código de acesso.",
         variant: "destructive"
       });
       return;
@@ -63,22 +64,63 @@ const Login = () => {
       const result = await sendMagicLink(loginEmail, companyCode);
       
       if (result.success) {
-        setMagicLinkSent(true);
+        setCodeSent(true);
         toast({
-          title: "Link enviado",
-          description: result.message || `Um link de acesso foi enviado para ${loginEmail}.`,
+          title: "Código enviado",
+          description: result.message || `Um código de acesso foi enviado para ${loginEmail}.`,
         });
       } else {
         toast({
-          title: "Erro ao enviar link",
-          description: result.message || "Não foi possível enviar o link. Verifique as informações e tente novamente.",
+          title: "Erro ao enviar código",
+          description: result.message || "Não foi possível enviar o código. Verifique as informações e tente novamente.",
           variant: "destructive"
         });
       }
     } catch (error) {
       toast({
-        title: "Erro ao enviar link",
+        title: "Erro ao enviar código",
         description: "Ocorreu um erro inesperado. Tente novamente mais tarde.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handleVerifyAccessCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!accessCode.trim()) {
+      toast({
+        title: "Código necessário",
+        description: "Por favor, insira o código de acesso que foi enviado para seu e-mail.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setLoading(true);
+    
+    try {
+      const result = await verifyLoginCode(loginEmail, accessCode, companyCode);
+      
+      if (result.success) {
+        toast({
+          title: "Acesso autorizado",
+          description: "Você será redirecionado para o sistema.",
+        });
+        // O redirecionamento é feito automaticamente pelo contexto de autenticação
+      } else {
+        toast({
+          title: "Código inválido",
+          description: result.message || "O código informado não é válido ou expirou. Tente novamente.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Erro na verificação",
+        description: "Ocorreu um erro ao verificar o código. Tente novamente.",
         variant: "destructive"
       });
     } finally {
@@ -122,7 +164,7 @@ const Login = () => {
       if (result.success) {
         toast({
           title: "Cadastro realizado com sucesso",
-          description: result.message || "Um link de acesso foi enviado para seu e-mail.",
+          description: result.message || "Um código de acesso foi enviado para seu e-mail.",
         });
         
         setRegistrationComplete(true);
@@ -204,8 +246,8 @@ const Login = () => {
               
               {/* Login Tab */}
               <TabsContent value="login">
-                {!magicLinkSent ? (
-                  <form onSubmit={handleSendMagicLink} className="space-y-4">
+                {!codeSent ? (
+                  <form onSubmit={handleSendAccessCode} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="company-code">Código da Empresa</Label>
                       <div className="relative">
@@ -246,33 +288,60 @@ const Login = () => {
                       ) : (
                         <>
                           <Send className="mr-2 h-4 w-4" />
-                          Enviar Link de Acesso
+                          Enviar Código de Acesso
                         </>
                       )}
                     </Button>
                   </form>
                 ) : (
-                  <div className="space-y-4 text-center">
-                    <div className="rounded-full bg-green-100 p-3 w-16 h-16 flex items-center justify-center mx-auto">
-                      <Mail className="h-8 w-8 text-green-600" />
+                  <form onSubmit={handleVerifyAccessCode} className="space-y-4">
+                    <div className="text-center mb-4">
+                      <p className="text-gray-400 mb-1">Enviamos um código para</p>
+                      <p className="font-medium">{loginEmail}</p>
                     </div>
                     
-                    <h3 className="text-lg font-medium">Link enviado!</h3>
-                    
-                    <p className="text-gray-400">
-                      Enviamos um link de acesso para <strong>{loginEmail}</strong>.<br />
-                      Por favor, verifique seu e-mail e clique no link para acessar o sistema.
-                    </p>
+                    <div className="space-y-2">
+                      <Label htmlFor="access-code">Código de Acesso</Label>
+                      <div className="relative">
+                        <KeyRound className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                        <Input
+                          id="access-code"
+                          type="text"
+                          placeholder="Digite o código recebido"
+                          value={accessCode}
+                          onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
+                          className="pl-10 bg-background/50 border-input/50 text-center font-mono text-lg tracking-widest"
+                          maxLength={8}
+                          autoFocus
+                        />
+                      </div>
+                    </div>
                     
                     <Button 
-                      type="button" 
-                      variant="outline" 
-                      onClick={() => setMagicLinkSent(false)}
-                      className="mt-4"
+                      type="submit" 
+                      className="w-full bg-vet-primary hover:bg-vet-primary/90"
+                      disabled={loading}
                     >
-                      Voltar
+                      {loading ? (
+                        "Verificando..."
+                      ) : (
+                        <>
+                          <ArrowRight className="mr-2 h-4 w-4" />
+                          Acessar Sistema
+                        </>
+                      )}
                     </Button>
-                  </div>
+                    
+                    <div className="text-center mt-4">
+                      <button 
+                        type="button" 
+                        onClick={() => setCodeSent(false)} 
+                        className="text-sm text-gray-400 hover:text-gray-300"
+                      >
+                        Voltar para envio de código
+                      </button>
+                    </div>
+                  </form>
                 )}
               </TabsContent>
               
@@ -357,7 +426,7 @@ const Login = () => {
                     
                     <p className="text-gray-400">
                       Sua empresa foi cadastrada com sucesso.<br />
-                      Enviamos um link de acesso para <strong>{registerEmail}</strong>.
+                      Enviamos um código de acesso para <strong>{registerEmail}</strong>.
                     </p>
                     
                     {newCompanyCode && (

@@ -4,11 +4,13 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card } from "@/components/ui/card";
 import { Loader2 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const AuthCallback = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const location = useLocation();
+  const { verifyLoginCode } = useAuth();
 
   useEffect(() => {
     const handleAuthCallback = async () => {
@@ -21,90 +23,13 @@ const AuthCallback = () => {
 
         // Check if this is a custom access code flow
         if (email && code && companyCode) {
-          // Handle custom access code authentication
-          const { data: companyData, error: companyError } = await supabase
-            .from('companies')
-            .select('*')
-            .eq('code', companyCode)
-            .single();
-
-          if (companyError || !companyData) {
-            throw new Error('Empresa não encontrada.');
+          // Handle custom access code authentication through the Auth context
+          const result = await verifyLoginCode(email, code, companyCode);
+          
+          if (!result.success) {
+            throw new Error(result.message || 'Erro na autenticação');
           }
-
-          // Verify the access code
-          const { data: accessCode, error: accessCodeError } = await supabase
-            .from('access_codes')
-            .select('*')
-            .eq('email', email)
-            .eq('code', code)
-            .eq('company_id', companyData.id)
-            .eq('is_used', false)
-            .single();
-
-          if (accessCodeError || !accessCode) {
-            throw new Error('Código de acesso inválido ou expirado.');
-          }
-
-          // Check if the code has expired
-          const now = new Date();
-          const expiresAt = new Date(accessCode.expires_at);
-          if (now > expiresAt) {
-            throw new Error('O código de acesso expirou.');
-          }
-
-          // Mark the code as used
-          await supabase
-            .from('access_codes')
-            .update({ is_used: true })
-            .eq('id', accessCode.id);
-
-          // Check if the user exists
-          const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('*')
-            .eq('email', email)
-            .eq('company_id', companyData.id)
-            .single();
-
-          // Create new user if doesn't exist and company allows signup
-          let user = userData;
-          if (!userData && companyData.allow_signup) {
-            const { data: newUser, error: createUserError } = await supabase
-              .from('users')
-              .insert({
-                email: email,
-                name: email.split('@')[0], // Default name from email
-                company_id: companyData.id,
-                role: 'user',
-                is_active: true,
-                last_login: new Date().toISOString()
-              })
-              .select()
-              .single();
-
-            if (createUserError) {
-              console.error("Error creating new user:", createUserError);
-              throw new Error('Não foi possível criar seu usuário.');
-            }
-
-            user = newUser;
-          } else if (!userData) {
-            throw new Error('Usuário não autorizado para esta empresa.');
-          }
-
-          // Update last login time
-          await supabase
-            .from('users')
-            .update({ last_login: new Date().toISOString() })
-            .eq('id', user.id);
-
-          // Store session in localStorage
-          localStorage.setItem('session', JSON.stringify({
-            user,
-            company: companyData
-          }));
-
+          
           setIsLoading(false);
           return;
         }
@@ -215,7 +140,7 @@ const AuthCallback = () => {
     };
 
     handleAuthCallback();
-  }, [location]);
+  }, [location, verifyLoginCode]);
 
   if (isLoading) {
     return (

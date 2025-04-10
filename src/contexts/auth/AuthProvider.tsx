@@ -74,8 +74,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const signIn = async (email: string, companyCode: string) => {
-    // Now uses the magic link flow by default
-    return await sendMagicLink(email, companyCode);
+    // Now uses the access code flow by default
+    return await sendLoginCode(email, companyCode);
   };
 
   const signOut = async () => {

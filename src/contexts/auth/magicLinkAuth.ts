@@ -50,7 +50,7 @@ export const sendMagicLink = async (email: string, companyCode: string) => {
       };
     }
 
-    // Generate a temporary login token that will be valid for 1 hour
+    // Generate a temporary login code that will be valid for 1 hour
     const token = Math.random().toString(36).substring(2, 10).toUpperCase();
     const expires_at = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
     
@@ -69,28 +69,19 @@ export const sendMagicLink = async (email: string, companyCode: string) => {
       console.error("Error storing token:", tokenError);
       return { 
         success: false, 
-        message: 'Não foi possível gerar o token de acesso. Tente novamente.'
+        message: 'Não foi possível gerar o código de acesso. Tente novamente.'
       };
     }
 
-    // Get the current domain/origin properly
-    const currentOrigin = window.location.origin;
-
-    // Create magic link URL
-    const loginUrl = `${currentOrigin}/auth/callback?email=${encodeURIComponent(email)}&code=${token}&companyCode=${companyCode}`;
-    
     // Generate email HTML content
     const emailBody = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
-        <h2 style="color: #333;">Link de Acesso</h2>
+        <h2 style="color: #333;">Código de Acesso</h2>
         <p style="color: #666;">Olá,</p>
-        <p style="color: #666;">Aqui está seu link de acesso para o sistema:</p>
-        <div style="margin: 30px 0;">
-          <a href="${loginUrl}" style="background-color: #4CAF50; color: white; padding: 12px 20px; text-decoration: none; border-radius: 4px; display: inline-block;">Acessar Sistema</a>
-        </div>
-        <p style="color: #666;">Se preferir, você também pode inserir o código abaixo na tela de login:</p>
+        <p style="color: #666;">Aqui está seu código de acesso para o sistema:</p>
         <div style="background-color: #f5f5f5; padding: 12px; font-family: monospace; font-size: 18px; text-align: center; margin: 20px 0; border-radius: 4px; letter-spacing: 2px;">${token}</div>
-        <p style="color: #999; font-size: 12px; margin-top: 30px;">Este link é válido por 1 hora. Se você não solicitou este link, por favor ignore este e-mail.</p>
+        <p style="color: #666;">Use este código na tela de login para acessar o sistema.</p>
+        <p style="color: #999; font-size: 12px; margin-top: 30px;">Este código é válido por 1 hora. Se você não solicitou este código, por favor ignore este e-mail.</p>
         <p style="color: #999; font-size: 12px;">© ${new Date().getFullYear()} ${companyData.name}</p>
       </div>
     `;
@@ -98,7 +89,7 @@ export const sendMagicLink = async (email: string, companyCode: string) => {
     // Send email using custom SMTP function
     const emailResult = await sendEmailWithCustomSMTP(
       email,
-      "Link de acesso ao sistema",
+      "Código de acesso ao sistema",
       emailBody,
       companyData.id
     );
@@ -109,13 +100,13 @@ export const sendMagicLink = async (email: string, companyCode: string) => {
       return await sendSupabaseMagicLink(email, companyData);
     }
 
-    // If we got here, the magic link was sent successfully
+    // If we got here, the code was sent successfully
     return { 
       success: true, 
-      message: 'Link de acesso enviado com sucesso para seu e-mail.'
+      message: 'Código de acesso enviado com sucesso para seu e-mail.'
     };
   } catch (error) {
-    console.error("Error sending magic link:", error);
+    console.error("Error sending access code:", error);
     return { 
       success: false, 
       message: 'Ocorreu um erro ao processar sua solicitação. Tente novamente.'
@@ -145,7 +136,7 @@ const sendSupabaseMagicLink = async (email: string, companyData: any) => {
       console.error("Error sending Supabase magic link:", magicLinkError);
       return { 
         success: false, 
-        message: 'Não foi possível enviar o link de acesso. Tente novamente.'
+        message: 'Não foi possível enviar o código de acesso. Tente novamente.'
       };
     }
 
