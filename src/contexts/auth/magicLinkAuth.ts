@@ -19,6 +19,16 @@ export const sendMagicLink = async (email: string, companyCode: string) => {
       };
     }
     
+    // Find user to get whatsapp number if exists
+    const { data: userData } = await supabase
+      .from('users')
+      .select('whatsapp')
+      .eq('email', email)
+      .eq('company_id', companyData.id)
+      .single();
+    
+    const whatsappNumber = userData?.whatsapp;
+    
     // Generate an access code
     const code = Math.random().toString(36).substring(2, 10).toUpperCase();
     const expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
@@ -65,7 +75,9 @@ export const sendMagicLink = async (email: string, companyCode: string) => {
                 </div>
               </div>
             `,
-            companyId: companyData.id
+            companyId: companyData.id,
+            whatsapp: whatsappNumber,
+            code: code
           }
         });
 

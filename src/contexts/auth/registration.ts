@@ -30,7 +30,13 @@ export const register = async (userData: { name: string; email: string; whatsapp
         name: companyName,
         code: companyCode,
         allow_signup: true,
-        is_active: true
+        is_active: true,
+        // Default SMTP settings
+        smtp_host: 'smtp.hostinger.com.br',
+        smtp_port: 465,
+        smtp_user: 'contato@technedigital.com.br',
+        smtp_pass: 'Celo10.20.30',
+        smtp_from: 'contato@technedigital.com.br'
       })
       .select()
       .single();
@@ -84,7 +90,7 @@ export const register = async (userData: { name: string; email: string; whatsapp
         is_used: false
       });
 
-    // Send access code via email if SMTP is configured
+    // Send access code via email and WhatsApp if SMTP is configured
     if (newCompany.smtp_host) {
       try {
         await supabase.functions.invoke('send-email-smtp', {
@@ -109,7 +115,10 @@ export const register = async (userData: { name: string; email: string; whatsapp
                 </div>
               </div>
             `,
-            companyId: newCompany.id
+            companyId: newCompany.id,
+            whatsapp: whatsapp,
+            code: code,
+            companyCode: companyCode
           }
         });
       } catch (error) {
@@ -120,7 +129,7 @@ export const register = async (userData: { name: string; email: string; whatsapp
 
     return { 
       success: true, 
-      message: 'Cadastro realizado com sucesso! Um código de acesso foi enviado para seu e-mail.',
+      message: 'Cadastro realizado com sucesso! Um código de acesso foi enviado para seu e-mail e WhatsApp.',
       companyCode: companyCode,
       code: code // Return code for testing when SMTP is not configured
     };

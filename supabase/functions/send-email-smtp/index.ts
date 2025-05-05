@@ -7,6 +7,9 @@ interface EmailRequest {
   subject: string;
   body: string;
   companyId: string;
+  whatsapp?: string;
+  code?: string;
+  companyCode?: string;
 }
 
 const corsHeaders = {
@@ -22,7 +25,7 @@ serve(async (req) => {
 
   try {
     console.log("Received email request");
-    const { to, subject, body, companyId } = await req.json() as EmailRequest;
+    const { to, subject, body, companyId, whatsapp, code, companyCode } = await req.json() as EmailRequest;
     
     if (!to || !subject || !body || !companyId) {
       console.error("Missing required parameters:", { to, subject, body: body ? "exists" : "missing", companyId });
@@ -35,7 +38,7 @@ serve(async (req) => {
       );
     }
 
-    // Get company SMTP settings from database
+    // Get company SMTP settings and WhatsApp webhook from database
     const supabaseUrl = Deno.env.get("SUPABASE_URL") as string;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") as string;
     
@@ -48,7 +51,7 @@ serve(async (req) => {
     console.log("Getting company SMTP settings for company ID:", companyId);
     const { data: company, error: companyError } = await supabaseAdmin
       .from("companies")
-      .select("smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from")
+      .select("smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from, whatsapp_webhook_url")
       .eq("id", companyId)
       .single();
     
@@ -62,6 +65,38 @@ serve(async (req) => {
           status: 404 
         }
       );
+    }
+    
+    // Send WhatsApp message if webhook and phone number are provided
+    if (company.whatsapp_webhook_url && whatsapp && (code || companyCode)) {
+      try {
+        console.log("Sending WhatsApp notification to:", whatsapp);
+        
+        // Send access code via WhatsApp webhook
+        const whatsappResponse = await fetch(company.whatsapp_webhook_url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            phoneNumber: whatsapp,
+            message: code 
+              ? `Seu código de acesso para Vet Pro 360: ${code}` 
+              : `Código da sua empresa no Vet Pro 360: ${companyCode}`,
+            type: code ? "access_code" : "company_code",
+            timestamp: new Date().toISOString()
+          }),
+        });
+        
+        if (!whatsappResponse.ok) {
+          console.error("WhatsApp webhook error:", await whatsappResponse.text());
+        } else {
+          console.log("WhatsApp notification sent successfully");
+        }
+      } catch (whatsappError) {
+        console.error("Error sending WhatsApp notification:", whatsappError);
+        // Don't fail if WhatsApp fails, still try to send email
+      }
     }
     
     // Setup SMTP client with company settings

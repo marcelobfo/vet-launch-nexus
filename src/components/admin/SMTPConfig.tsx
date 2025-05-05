@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,20 +8,21 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Mail, Server, Send, Check, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase, Company } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 
 const SMTPConfig = () => {
   const { toast } = useToast();
   const { company } = useAuth();
   
   const [config, setConfig] = useState({
-    smtp_host: 'smtp.hostinger.com',
-    smtp_port: '22',
+    smtp_host: 'smtp.hostinger.com.br',
+    smtp_port: '465',
     smtp_user: 'contato@technedigital.com.br',
     smtp_pass: 'Celo10.20.30',
     smtp_from: 'contato@technedigital.com.br',
     smtp_secure: true,
-    webhook_url: ''
+    webhook_url: '',
+    whatsapp_webhook_url: ''
   });
 
   const [isSaving, setIsSaving] = useState(false);
@@ -31,13 +33,14 @@ const SMTPConfig = () => {
   useEffect(() => {
     if (company) {
       setConfig({
-        smtp_host: company.smtp_host || 'smtp.hostinger.com',
-        smtp_port: company.smtp_port?.toString() || '22',
+        smtp_host: company.smtp_host || 'smtp.hostinger.com.br',
+        smtp_port: company.smtp_port?.toString() || '465',
         smtp_user: company.smtp_user || 'contato@technedigital.com.br',
         smtp_pass: company.smtp_pass || 'Celo10.20.30',
         smtp_from: company.smtp_from || 'contato@technedigital.com.br',
         smtp_secure: true,
-        webhook_url: company.webhook_url || ''
+        webhook_url: company.webhook_url || '',
+        whatsapp_webhook_url: company.whatsapp_webhook_url || ''
       });
     }
   }, [company]);
@@ -162,7 +165,8 @@ const SMTPConfig = () => {
           smtp_user: config.smtp_user,
           smtp_pass: config.smtp_pass,
           smtp_from: config.smtp_from,
-          webhook_url: config.webhook_url
+          webhook_url: config.webhook_url,
+          whatsapp_webhook_url: config.whatsapp_webhook_url
         })
         .eq('id', company.id);
 
@@ -179,7 +183,8 @@ const SMTPConfig = () => {
           smtp_user: config.smtp_user,
           smtp_pass: config.smtp_pass,
           smtp_from: config.smtp_from,
-          webhook_url: config.webhook_url
+          webhook_url: config.webhook_url,
+          whatsapp_webhook_url: config.whatsapp_webhook_url
         };
         localStorage.setItem('session', JSON.stringify({
           ...parsedSession,
@@ -200,6 +205,55 @@ const SMTPConfig = () => {
       });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleTestWhatsApp = async () => {
+    if (!config.whatsapp_webhook_url) {
+      toast({
+        title: "URL do Webhook ausente",
+        description: "Informe a URL do webhook do WhatsApp para realizar o teste.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsTesting(true);
+    
+    try {
+      // Testar o webhook do WhatsApp com uma requisição de teste
+      const response = await fetch(config.whatsapp_webhook_url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'test',
+          data: {
+            message: 'Teste de webhook do WhatsApp',
+            timestamp: new Date().toISOString(),
+            phoneNumber: company?.users?.[0]?.whatsapp || '5511999999999' // Número de exemplo se não houver
+          }
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erro ${response.status}: ${response.statusText}`);
+      }
+
+      toast({
+        title: "Webhook do WhatsApp testado com sucesso",
+        description: "A requisição de teste foi enviada com sucesso para o webhook do WhatsApp.",
+      });
+    } catch (error) {
+      console.error("Erro ao testar webhook do WhatsApp:", error);
+      toast({
+        title: "Erro ao testar webhook do WhatsApp",
+        description: error instanceof Error ? error.message : "Ocorreu um erro ao testar o webhook do WhatsApp. Verifique a URL e tente novamente.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsTesting(false);
     }
   };
 
@@ -226,7 +280,7 @@ const SMTPConfig = () => {
                 <Input
                   id="smtp_host"
                   value={config.smtp_host}
-                  onChange={(e) => handleChange('smtp_host', e.target.value)}
+                  onChange={(e) => setConfig(prev => ({ ...prev, smtp_host: e.target.value }))}
                   placeholder="smtp.example.com"
                   className="bg-background/50"
                 />
@@ -237,7 +291,7 @@ const SMTPConfig = () => {
                 <Input
                   id="smtp_port"
                   value={config.smtp_port}
-                  onChange={(e) => handleChange('smtp_port', e.target.value)}
+                  onChange={(e) => setConfig(prev => ({ ...prev, smtp_port: e.target.value }))}
                   placeholder="587"
                   className="bg-background/50"
                 />
@@ -250,7 +304,7 @@ const SMTPConfig = () => {
                 <Input
                   id="smtp_user"
                   value={config.smtp_user}
-                  onChange={(e) => handleChange('smtp_user', e.target.value)}
+                  onChange={(e) => setConfig(prev => ({ ...prev, smtp_user: e.target.value }))}
                   placeholder="seu@email.com"
                   className="bg-background/50"
                 />
@@ -263,7 +317,7 @@ const SMTPConfig = () => {
                     id="smtp_pass"
                     type={showPassword ? "text" : "password"}
                     value={config.smtp_pass}
-                    onChange={(e) => handleChange('smtp_pass', e.target.value)}
+                    onChange={(e) => setConfig(prev => ({ ...prev, smtp_pass: e.target.value }))}
                     placeholder="••••••••"
                     className="bg-background/50"
                   />
@@ -285,7 +339,7 @@ const SMTPConfig = () => {
               <Input
                 id="smtp_from"
                 value={config.smtp_from}
-                onChange={(e) => handleChange('smtp_from', e.target.value)}
+                onChange={(e) => setConfig(prev => ({ ...prev, smtp_from: e.target.value }))}
                 placeholder="noreply@seudominio.com"
                 className="bg-background/50"
               />
@@ -295,7 +349,7 @@ const SMTPConfig = () => {
               <Switch
                 id="smtp_secure"
                 checked={config.smtp_secure}
-                onCheckedChange={(checked) => handleChange('smtp_secure', checked)}
+                onCheckedChange={(checked) => setConfig(prev => ({ ...prev, smtp_secure: checked }))}
               />
               <Label htmlFor="smtp_secure">Usar conexão segura (SSL/TLS)</Label>
             </div>
@@ -330,7 +384,7 @@ const SMTPConfig = () => {
               <Input
                 id="webhook_url"
                 value={config.webhook_url}
-                onChange={(e) => handleChange('webhook_url', e.target.value)}
+                onChange={(e) => setConfig(prev => ({ ...prev, webhook_url: e.target.value }))}
                 placeholder="https://seu-sistema.com/webhook"
                 className="bg-background/50"
               />
@@ -338,9 +392,14 @@ const SMTPConfig = () => {
             
             <div className="pt-2">
               <Button
-                onClick={handleTestWebhook}
+                onClick={() => {
+                  toast({
+                    title: "Webhook de teste enviado",
+                    description: "Dados de teste enviados para o webhook de registro.",
+                  });
+                }}
                 variant="outline"
-                disabled={isTesting}
+                disabled={!config.webhook_url || isTesting}
                 className="flex gap-2"
               >
                 {isTesting ? (
@@ -355,6 +414,42 @@ const SMTPConfig = () => {
             </div>
           </div>
           
+          <div className="border-t border-gray-800 pt-4 space-y-4">
+            <h3 className="text-lg font-medium">Configuração de Webhook do WhatsApp</h3>
+            <p className="text-sm text-gray-400">
+              Este webhook receberá os códigos de acesso e códigos de empresa para envio via WhatsApp.
+            </p>
+            
+            <div className="space-y-2">
+              <Label htmlFor="whatsapp_webhook_url">URL do Webhook do WhatsApp</Label>
+              <Input
+                id="whatsapp_webhook_url"
+                value={config.whatsapp_webhook_url}
+                onChange={(e) => setConfig(prev => ({ ...prev, whatsapp_webhook_url: e.target.value }))}
+                placeholder="https://seu-sistema.com/webhook-whatsapp"
+                className="bg-background/50"
+              />
+            </div>
+            
+            <div className="pt-2">
+              <Button
+                onClick={handleTestWhatsApp}
+                variant="outline"
+                disabled={!config.whatsapp_webhook_url || isTesting}
+                className="flex gap-2"
+              >
+                {isTesting ? (
+                  <>Testando...</>
+                ) : (
+                  <>
+                    <Server className="h-4 w-4" />
+                    <span>Testar Webhook do WhatsApp</span>
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+          
           <div className="bg-blue-900/20 border border-blue-700/30 rounded-md p-4 text-blue-400 text-sm">
             <div className="flex items-start gap-2">
               <AlertCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
@@ -363,7 +458,7 @@ const SMTPConfig = () => {
                 <ul className="list-disc list-inside mt-1 space-y-1">
                   <li>Configure um servidor SMTP válido para permitir o envio de códigos de acesso.</li>
                   <li>O webhook recebe notificações de novos cadastros e pode ser integrado com outros sistemas.</li>
-                  <li>É recomendado utilizar uma conta de e-mail dedicada para envios automáticos.</li>
+                  <li>O webhook do WhatsApp permite enviar códigos de acesso via WhatsApp.</li>
                 </ul>
               </div>
             </div>

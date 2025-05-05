@@ -3,3 +3,6 @@ project_id = "opipazvvefdcdyywybpm"
 
 [functions.send-email-smtp]
 verify_jwt = true
+
+[functions.test-smtp]
+verify_jwt = true
