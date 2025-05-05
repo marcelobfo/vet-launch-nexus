@@ -6,7 +6,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+};
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -79,10 +79,14 @@ serve(async (req) => {
       });
     }
 
-    // If there's a WhatsApp webhook URL and a WhatsApp number, send the code via WhatsApp webhook too
-    if (company.whatsapp_webhook_url && whatsapp && code) {
+    // Se existir uma URL de webhook do WhatsApp e um número de WhatsApp e código, envia o código via webhook do WhatsApp
+    // Utilizamos a URL padrão se a empresa não tiver uma configurada
+    const whatsappWebhookUrl = company.whatsapp_webhook_url || 'https://atendimento-creditar-n8n.stpanz.easypanel.host/webhook-test/vetplataforma';
+    
+    if (whatsappWebhookUrl && whatsapp && code) {
       try {
-        const whatsappResponse = await fetch(company.whatsapp_webhook_url, {
+        console.log(`Enviando código de acesso via webhook para ${whatsapp}`);
+        const whatsappResponse = await fetch(whatsappWebhookUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -100,6 +104,8 @@ serve(async (req) => {
 
         if (!whatsappResponse.ok) {
           console.error(`WhatsApp webhook error: ${whatsappResponse.status} ${whatsappResponse.statusText}`);
+        } else {
+          console.log('Código de acesso enviado com sucesso via webhook WhatsApp');
         }
       } catch (whatsappError) {
         console.error("WhatsApp webhook error:", whatsappError);

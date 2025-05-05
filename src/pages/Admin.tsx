@@ -135,6 +135,7 @@ const Admin = ({ isDarkTheme, setIsDarkTheme }: AdminProps) => {
     autoSend: false,
     frequency: "weekly" as const,
     registrationWebhookUrl: '',
+    whatsappWebhookUrl: 'https://atendimento-creditar-n8n.stpanz.easypanel.host/webhook-test/vetplataforma',
     smtpSettings: {
       host: '',
       port: 587,
@@ -177,10 +178,11 @@ const Admin = ({ isDarkTheme, setIsDarkTheme }: AdminProps) => {
       }));
       
       // Update webhook settings if available
-      if (company.webhook_url) {
+      if (company.webhook_url || company.whatsapp_webhook_url) {
         setWebhookSettings(prev => ({
           ...prev,
-          url: company.webhook_url
+          url: company.webhook_url || prev.url,
+          whatsappWebhookUrl: company.whatsapp_webhook_url || prev.whatsappWebhookUrl
         }));
       }
     }
