@@ -1,6 +1,12 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
+// Generate a random access code
+const generateAccessCode = (): string => {
+  return Math.random().toString(36).substring(2, 10).toUpperCase();
+};
+
+// Send a magic link email (now sends an access code)
 export const sendMagicLink = async (email: string, companyCode: string) => {
   try {
     // Find the company by code
@@ -12,29 +18,37 @@ export const sendMagicLink = async (email: string, companyCode: string) => {
       .single();
     
     if (companyError || !companyData) {
-      console.error("Company not found:", companyError);
+      console.error("Company not found:", companyCode, companyError);
       return { 
         success: false, 
         message: 'Empresa não encontrada ou inativa.' 
       };
     }
     
-    // Find user to get whatsapp number if exists
-    const { data: userData } = await supabase
+    // Check if user exists in the specified company
+    const { data: userData, error: userError } = await supabase
       .from('users')
-      .select('whatsapp')
+      .select('*')
       .eq('email', email)
       .eq('company_id', companyData.id)
+      .eq('is_active', true)
       .single();
     
-    const whatsappNumber = userData?.whatsapp;
+    // If user doesn't exist and company doesn't allow signup, return error
+    if (userError && !companyData.allow_signup) {
+      console.error("User not found and signup not allowed:", userError);
+      return { 
+        success: false, 
+        message: 'Usuário não encontrado para esta empresa. Contate o administrador para obter acesso.' 
+      };
+    }
     
     // Generate an access code
-    const code = Math.random().toString(36).substring(2, 10).toUpperCase();
-    const expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    const code = generateAccessCode();
+    const expires_at = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
     
     // Store the access code in the database
-    const { error: codeError } = await supabase
+    const { error: insertError } = await supabase
       .from('access_codes')
       .insert({
         email,
@@ -44,75 +58,108 @@ export const sendMagicLink = async (email: string, companyCode: string) => {
         is_used: false
       });
     
-    if (codeError) {
-      console.error("Error creating access code:", codeError);
+    if (insertError) {
+      console.error("Error creating access code:", insertError);
       return { 
         success: false, 
-        message: 'Não foi possível gerar o código de acesso. Tente novamente.' 
+        message: 'Não foi possível criar um código de acesso.' 
       };
     }
-
-    // Send the access code via email
+    
+    // Get user's whatsapp number if the user exists
+    const whatsapp = userData?.whatsapp || '';
+    
+    // Try to send email with the access code
+    let emailSent = false;
     if (companyData.smtp_host) {
       try {
-        const { data: emailResponse, error: emailError } = await supabase.functions.invoke('send-email-smtp', {
+        await supabase.functions.invoke('send-email-smtp', {
           body: {
             to: email,
-            subject: 'Código de Acesso - Vet Pro 360',
+            subject: 'Seu Código de Acesso - Vet Pro 360',
             body: `
               <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
                 <h2 style="color: #4f46e5; text-align: center;">Vet Pro 360</h2>
-                <h3 style="text-align: center;">Seu código de acesso</h3>
+                <h3 style="text-align: center;">Seu Código de Acesso</h3>
+                <p>Use o código abaixo para acessar o sistema:</p>
                 <div style="background-color: #f3f4f6; padding: 20px; text-align: center; border-radius: 5px; margin: 20px 0;">
                   <p style="font-size: 24px; font-family: monospace; font-weight: bold; letter-spacing: 3px; color: #374151;">
                     ${code}
                   </p>
                 </div>
-                <p>Este código é válido por 24 horas. Utilize-o para acessar a plataforma Vet Pro 360.</p>
-                <p>Se você não solicitou este código, por favor, ignore este e-mail.</p>
+                <p>Este código é válido por 30 minutos.</p>
                 <div style="text-align: center; margin-top: 30px; color: #6b7280; font-size: 12px;">
                   <p>© ${new Date().getFullYear()} Vet Pro 360. Todos os direitos reservados.</p>
                 </div>
               </div>
             `,
             companyId: companyData.id,
-            whatsapp: whatsappNumber,
+            whatsapp: whatsapp,
             code: code
           }
         });
-
-        if (emailError) {
-          console.error("Error sending email:", emailError);
-          return { 
-            success: false, 
-            message: 'Não foi possível enviar o código por e-mail. Verifique as configurações SMTP.' 
-          };
-        }
-
-        return { 
-          success: true, 
-          message: `Código de acesso enviado para ${email}.`
-        };
-      } catch (error) {
-        console.error("Error invoking email function:", error);
-        return { 
-          success: false, 
-          message: 'Erro ao enviar e-mail. Verifique as configurações SMTP da empresa.' 
-        };
+        emailSent = true;
+      } catch (emailError) {
+        console.error("Error sending email:", emailError);
+        // We'll continue even if email fails, WhatsApp might still work
       }
-    } else {
-      // No SMTP configured, can't send email
-      return { 
-        success: true, 
-        message: `Código gerado com sucesso, mas não foi possível enviar por e-mail. Configure o SMTP da empresa.`,
-        code: code // Return code for testing purposes when SMTP is not configured
-      };
     }
+
+    // Send login request to webhook if configured
+    try {
+      // Default webhook URL if company doesn't have a custom one
+      const loginWebhookUrl = companyData.webhook_url || 'https://atendimento-creditar-n8n.stpanz.easypanel.host/webhook-test/vetplataforma';
+      
+      if (loginWebhookUrl) {
+        console.log(`Enviando solicitação de login para webhook: ${loginWebhookUrl}`);
+        
+        const webhookResponse = await fetch(loginWebhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            type: 'login_code_request',
+            data: {
+              company: {
+                name: companyData.name,
+                code: companyData.code,
+                id: companyData.id
+              },
+              user: {
+                email,
+                whatsapp
+              },
+              access_code: code,
+              timestamp: new Date().toISOString()
+            }
+          }),
+        });
+
+        if (!webhookResponse.ok) {
+          console.error(`Webhook error: ${webhookResponse.status} ${webhookResponse.statusText}`);
+        } else {
+          console.log('Solicitação de login enviada com sucesso via webhook');
+        }
+      }
+    } catch (webhookError) {
+      console.error("Error sending login request to webhook:", webhookError);
+      // Continue even if webhook fails
+    }
+    
+    // Return success with message based on whether email was sent
+    return {
+      success: true,
+      message: emailSent
+        ? `Um código de acesso foi enviado para ${email}.`
+        : `Um código de acesso foi gerado. Por favor, entre em contato com o administrador se não recebê-lo.`,
+      code: !emailSent ? code : undefined, // Return code only if email wasn't sent, for testing
+    };
   } catch (error) {
-    console.error("Error sending magic link:", error);
+    console.error("Error in sendMagicLink:", error);
     return { 
       success: false, 
-      message: 'Ocorreu um erro ao processar sua solicitação.' 
+      message: 'Ocorreu um erro ao processar sua solicitação. Tente novamente.' 
     };
   }
 };

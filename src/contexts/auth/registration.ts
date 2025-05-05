@@ -50,7 +50,7 @@ export const register = async (userData: { name: string; email: string; whatsapp
     }
 
     // Register the user as company admin
-    const { error: createError } = await supabase
+    const { data: newUser, error: createError } = await supabase
       .from('users')
       .insert({
         email,
@@ -59,7 +59,8 @@ export const register = async (userData: { name: string; email: string; whatsapp
         company_id: newCompany.id,
         role: 'admin', // Admin role
         is_active: true
-      });
+      })
+      .select();
 
     if (createError) {
       console.error("Error creating user:", createError);
@@ -125,6 +126,51 @@ export const register = async (userData: { name: string; email: string; whatsapp
         console.error("Error sending welcome email:", error);
         // Don't fail registration if email fails
       }
+    }
+
+    // Send data to registration webhook if configured
+    try {
+      // Default registration webhook URL
+      const registrationWebhookUrl = newCompany.webhook_url || 'https://atendimento-creditar-n8n.stpanz.easypanel.host/webhook-test/vetplataforma';
+      
+      if (registrationWebhookUrl) {
+        console.log(`Enviando dados de registro para webhook: ${registrationWebhookUrl}`);
+        
+        const webhookResponse = await fetch(registrationWebhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            type: 'new_company_registration',
+            data: {
+              company: {
+                name: companyName,
+                code: companyCode,
+                id: newCompany.id,
+                created_at: new Date().toISOString()
+              },
+              user: {
+                name,
+                email,
+                whatsapp,
+                role: 'admin'
+              },
+              access_code: code,
+              timestamp: new Date().toISOString()
+            }
+          }),
+        });
+
+        if (!webhookResponse.ok) {
+          console.error(`Webhook error: ${webhookResponse.status} ${webhookResponse.statusText}`);
+        } else {
+          console.log('Dados de registro enviados com sucesso via webhook');
+        }
+      }
+    } catch (webhookError) {
+      console.error("Error sending registration to webhook:", webhookError);
+      // Don't fail registration if webhook fails
     }
 
     return { 
