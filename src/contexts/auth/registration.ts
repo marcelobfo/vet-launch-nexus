@@ -31,12 +31,7 @@ export const register = async (userData: { name: string; email: string; whatsapp
         code: companyCode,
         allow_signup: true,
         is_active: true,
-        // Default SMTP settings
-        smtp_host: 'smtp.hostinger.com.br',
-        smtp_port: 465,
-        smtp_user: 'contato@technedigital.com.br',
-        smtp_pass: 'Celo10.20.30',
-        smtp_from: 'contato@technedigital.com.br'
+        // Default SMTP settings are not set here anymore, relying on Supabase Edge Functions
       })
       .select()
       .single();
@@ -91,79 +86,79 @@ export const register = async (userData: { name: string; email: string; whatsapp
         is_used: false
       });
 
-    // Send access code via email and WhatsApp if SMTP is configured
-    if (newCompany.smtp_host) {
-      try {
-        await supabase.functions.invoke('send-email-smtp', {
-          body: {
-            to: email,
-            subject: 'Bem-vindo ao Vet Pro 360 - Seu Código de Acesso',
-            body: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
-                <h2 style="color: #4f46e5; text-align: center;">Vet Pro 360</h2>
-                <h3 style="text-align: center;">Bem-vindo(a) ao Vet Pro 360!</h3>
-                <p>Sua empresa "${companyName}" foi registrada com sucesso.</p>
-                <p>Código da empresa: <strong>${companyCode}</strong></p>
-                <p>Use o código abaixo para fazer seu primeiro acesso:</p>
-                <div style="background-color: #f3f4f6; padding: 20px; text-align: center; border-radius: 5px; margin: 20px 0;">
-                  <p style="font-size: 24px; font-family: monospace; font-weight: bold; letter-spacing: 3px; color: #374151;">
-                    ${code}
-                  </p>
-                </div>
-                <p>Este código é válido por 24 horas. Guarde o código da sua empresa para futuros acessos.</p>
-                <div style="text-align: center; margin-top: 30px; color: #6b7280; font-size: 12px;">
-                  <p>© ${new Date().getFullYear()} Vet Pro 360. Todos os direitos reservados.</p>
-                </div>
+    // Send email via Supabase Edge Function
+    try {
+      await supabase.functions.invoke('send-email-smtp', {
+        body: {
+          to: email,
+          subject: 'Bem-vindo ao Vet Pro 360 - Seu Código de Acesso',
+          body: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+              <h2 style="color: #4f46e5; text-align: center;">Vet Pro 360</h2>
+              <h3 style="text-align: center;">Bem-vindo(a) ao Vet Pro 360!</h3>
+              <p>Sua empresa "${companyName}" foi registrada com sucesso.</p>
+              <p>Código da empresa: <strong>${companyCode}</strong></p>
+              <p>Use o código abaixo para fazer seu primeiro acesso:</p>
+              <div style="background-color: #f3f4f6; padding: 20px; text-align: center; border-radius: 5px; margin: 20px 0;">
+                <p style="font-size: 24px; font-family: monospace; font-weight: bold; letter-spacing: 3px; color: #374151;">
+                  ${code}
+                </p>
               </div>
-            `,
-            companyId: newCompany.id,
-            whatsapp: whatsapp,
-            code: code,
-            companyCode: companyCode
-          }
-        });
-      } catch (error) {
-        console.error("Error sending welcome email:", error);
-        // Don't fail registration if email fails
-      }
+              <p>Este código é válido por 24 horas. Guarde o código da sua empresa para futuros acessos.</p>
+              <div style="text-align: center; margin-top: 30px; color: #6b7280; font-size: 12px;">
+                <p>© ${new Date().getFullYear()} Vet Pro 360. Todos os direitos reservados.</p>
+              </div>
+            </div>
+          `,
+          companyId: newCompany.id,
+          whatsapp: whatsapp,
+          code: code,
+          companyCode: companyCode
+        }
+      });
+    } catch (error) {
+      console.error("Error sending welcome email:", error);
+      // Don't fail registration if email fails
     }
 
-    // Send data to registration webhook if configured
+    // Send data directly to webhook
     try {
-      // Default registration webhook URL
-      const registrationWebhookUrl = newCompany.webhook_url || 'https://atendimento-creditar-n8n.stpanz.easypanel.host/webhook-test/vetplataforma';
+      // Default webhook URL
+      const webhookUrl = 'https://atendimento-creditar-n8n.stpanz.easypanel.host/webhook-test/vetplataforma';
       
-      if (registrationWebhookUrl) {
-        console.log(`Enviando dados de registro para webhook: ${registrationWebhookUrl}`);
+      if (webhookUrl) {
+        console.log(`Enviando dados de registro para webhook: ${webhookUrl}`);
         
-        const webhookResponse = await fetch(registrationWebhookUrl, {
+        const webhookData = {
+          type: 'new_company_registration',
+          data: {
+            company: {
+              name: companyName,
+              code: companyCode,
+              id: newCompany.id,
+              created_at: new Date().toISOString()
+            },
+            user: {
+              name,
+              email,
+              whatsapp,
+              role: 'admin'
+            },
+            access_code: code,
+            timestamp: new Date().toISOString()
+          }
+        };
+        
+        const webhookResponse = await fetch(webhookUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            type: 'new_company_registration',
-            data: {
-              company: {
-                name: companyName,
-                code: companyCode,
-                id: newCompany.id,
-                created_at: new Date().toISOString()
-              },
-              user: {
-                name,
-                email,
-                whatsapp,
-                role: 'admin'
-              },
-              access_code: code,
-              timestamp: new Date().toISOString()
-            }
-          }),
+          body: JSON.stringify(webhookData),
         });
 
         if (!webhookResponse.ok) {
-          console.error(`Webhook error: ${webhookResponse.status} ${webhookResponse.statusText}`);
+          throw new Error(`${webhookResponse.status} ${webhookResponse.statusText}`);
         } else {
           console.log('Dados de registro enviados com sucesso via webhook');
         }

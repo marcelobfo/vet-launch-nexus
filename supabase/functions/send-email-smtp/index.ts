@@ -31,62 +31,65 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get company's SMTP settings
+    // Get company's info
     const { data: company, error: companyError } = await supabase
       .from('company_with_users')  // Use the view that includes users
       .select('*')
       .eq('id', companyId)
       .single();
       
-    if (companyError || !company || !company.smtp_host) {
+    if (companyError || !company) {
       return new Response(JSON.stringify({ 
-        error: 'Configurações SMTP não encontradas'
+        error: 'Empresa não encontrada'
       }), {
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
         status: 404
       });
     }
 
-    // Configure SMTP client
-    const client = new SmtpClient();
+    let emailSent = false;
     
-    try {
-      await client.connectTLS({
-        hostname: company.smtp_host,
-        port: company.smtp_port || 465,
-        username: company.smtp_user,
-        password: company.smtp_pass,
-        debug: true,
-      });
-      
-      // Send email
-      await client.send({
-        from: company.smtp_from,
-        to: to,
-        subject: subject,
-        content: body,
-        html: body,
-      });
-      
-      await client.close();
-    } catch (smtpError) {
-      console.error("SMTP Error:", smtpError);
-      return new Response(JSON.stringify({ 
-        error: `Erro SMTP: ${smtpError.message}`
-      }), {
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
-        status: 500
-      });
+    // Attempt to send email via SMTP if configured
+    if (company.smtp_host) {
+      try {
+        // Configure SMTP client
+        const client = new SmtpClient();
+        
+        await client.connectTLS({
+          hostname: company.smtp_host,
+          port: company.smtp_port || 465,
+          username: company.smtp_user,
+          password: company.smtp_pass,
+        });
+        
+        // Send email
+        await client.send({
+          from: company.smtp_from,
+          to: to,
+          subject: subject,
+          content: body,
+          html: body,
+        });
+        
+        await client.close();
+        emailSent = true;
+        console.log("Email enviado com sucesso via SMTP");
+      } catch (smtpError) {
+        console.error("SMTP Error:", smtpError);
+        // Continue with webhook if SMTP fails
+      }
     }
 
-    // Se existir uma URL de webhook do WhatsApp e um número de WhatsApp e código, envia o código via webhook do WhatsApp
-    // Utilizamos a URL padrão se a empresa não tiver uma configurada
-    const whatsappWebhookUrl = company.whatsapp_webhook_url || 'https://atendimento-creditar-n8n.stpanz.easypanel.host/webhook-test/vetplataforma';
-    
-    if (whatsappWebhookUrl && whatsapp && code) {
-      try {
+    // Sempre tenta enviar para o webhook do WhatsApp, independente do SMTP ter funcionado
+    let whatsappSent = false;
+    try {
+      // Use the configured webhook URL or default
+      const webhookUrl = company.whatsapp_webhook_url || 'https://atendimento-creditar-n8n.stpanz.easypanel.host/webhook-test/vetplataforma';
+      
+      if (webhookUrl && whatsapp && code) {
         console.log(`Enviando código de acesso via webhook para ${whatsapp}`);
-        const whatsappResponse = await fetch(whatsappWebhookUrl, {
+        
+        const webhookResponse = await fetch(webhookUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -102,20 +105,23 @@ serve(async (req) => {
           }),
         });
 
-        if (!whatsappResponse.ok) {
-          console.error(`WhatsApp webhook error: ${whatsappResponse.status} ${whatsappResponse.statusText}`);
+        if (!webhookResponse.ok) {
+          throw new Error(`Status: ${webhookResponse.status} ${webhookResponse.statusText}`);
         } else {
+          whatsappSent = true;
           console.log('Código de acesso enviado com sucesso via webhook WhatsApp');
         }
-      } catch (whatsappError) {
-        console.error("WhatsApp webhook error:", whatsappError);
-        // We don't want to fail the whole request if WhatsApp webhook fails
       }
+    } catch (whatsappError) {
+      console.error("WhatsApp webhook error:", whatsappError);
+      // We don't fail the whole request if WhatsApp webhook fails
     }
     
     return new Response(JSON.stringify({ 
       success: true,
-      message: 'Email enviado com sucesso'
+      email_sent: emailSent,
+      whatsapp_sent: whatsappSent,
+      message: 'Operação concluída'
     }), {
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
       status: 200
@@ -123,7 +129,7 @@ serve(async (req) => {
   } catch (error) {
     console.error("Error:", error);
     return new Response(JSON.stringify({ 
-      error: `Erro ao enviar email: ${error.message}`
+      error: `Erro ao processar operação: ${error.message}`
     }), {
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
       status: 500

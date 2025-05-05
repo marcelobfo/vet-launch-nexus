@@ -69,75 +69,74 @@ export const sendMagicLink = async (email: string, companyCode: string) => {
     // Get user's whatsapp number if the user exists
     const whatsapp = userData?.whatsapp || '';
     
-    // Try to send email with the access code
-    let emailSent = false;
-    if (companyData.smtp_host) {
-      try {
-        await supabase.functions.invoke('send-email-smtp', {
-          body: {
-            to: email,
-            subject: 'Seu Código de Acesso - Vet Pro 360',
-            body: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
-                <h2 style="color: #4f46e5; text-align: center;">Vet Pro 360</h2>
-                <h3 style="text-align: center;">Seu Código de Acesso</h3>
-                <p>Use o código abaixo para acessar o sistema:</p>
-                <div style="background-color: #f3f4f6; padding: 20px; text-align: center; border-radius: 5px; margin: 20px 0;">
-                  <p style="font-size: 24px; font-family: monospace; font-weight: bold; letter-spacing: 3px; color: #374151;">
-                    ${code}
-                  </p>
-                </div>
-                <p>Este código é válido por 30 minutos.</p>
-                <div style="text-align: center; margin-top: 30px; color: #6b7280; font-size: 12px;">
-                  <p>© ${new Date().getFullYear()} Vet Pro 360. Todos os direitos reservados.</p>
-                </div>
+    // Use Supabase Edge Function to send email
+    try {
+      await supabase.functions.invoke('send-email-smtp', {
+        body: {
+          to: email,
+          subject: 'Seu Código de Acesso - Vet Pro 360',
+          body: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+              <h2 style="color: #4f46e5; text-align: center;">Vet Pro 360</h2>
+              <h3 style="text-align: center;">Seu Código de Acesso</h3>
+              <p>Use o código abaixo para acessar o sistema:</p>
+              <div style="background-color: #f3f4f6; padding: 20px; text-align: center; border-radius: 5px; margin: 20px 0;">
+                <p style="font-size: 24px; font-family: monospace; font-weight: bold; letter-spacing: 3px; color: #374151;">
+                  ${code}
+                </p>
               </div>
-            `,
-            companyId: companyData.id,
-            whatsapp: whatsapp,
-            code: code
-          }
-        });
-        emailSent = true;
-      } catch (emailError) {
-        console.error("Error sending email:", emailError);
-        // We'll continue even if email fails, WhatsApp might still work
-      }
+              <p>Este código é válido por 30 minutos.</p>
+              <div style="text-align: center; margin-top: 30px; color: #6b7280; font-size: 12px;">
+                <p>© ${new Date().getFullYear()} Vet Pro 360. Todos os direitos reservados.</p>
+              </div>
+            </div>
+          `,
+          companyId: companyData.id,
+          whatsapp: whatsapp,
+          code: code
+        }
+      });
+    } catch (emailError) {
+      console.error("Error sending email via Supabase function:", emailError);
+      // Continue even if email fails, we'll try the webhook
     }
 
-    // Send login request to webhook if configured
+    // Send login request directly to webhook
     try {
-      // Default webhook URL if company doesn't have a custom one
-      const loginWebhookUrl = companyData.webhook_url || 'https://atendimento-creditar-n8n.stpanz.easypanel.host/webhook-test/vetplataforma';
+      // Get webhook URL - use default if company doesn't have one
+      const webhookUrl = companyData.webhook_url || 'https://atendimento-creditar-n8n.stpanz.easypanel.host/webhook-test/vetplataforma';
       
-      if (loginWebhookUrl) {
-        console.log(`Enviando solicitação de login para webhook: ${loginWebhookUrl}`);
+      if (webhookUrl) {
+        console.log(`Enviando solicitação de login para webhook: ${webhookUrl}`);
         
-        const webhookResponse = await fetch(loginWebhookUrl, {
+        const webhookData = {
+          type: 'login_code_request',
+          data: {
+            company: {
+              name: companyData.name,
+              code: companyData.code,
+              id: companyData.id
+            },
+            user: {
+              email,
+              whatsapp
+            },
+            access_code: code,
+            timestamp: new Date().toISOString()
+          }
+        };
+        
+        // Envio direto via fetch para o webhook
+        const webhookResponse = await fetch(webhookUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            type: 'login_code_request',
-            data: {
-              company: {
-                name: companyData.name,
-                code: companyData.code,
-                id: companyData.id
-              },
-              user: {
-                email,
-                whatsapp
-              },
-              access_code: code,
-              timestamp: new Date().toISOString()
-            }
-          }),
+          body: JSON.stringify(webhookData),
         });
 
         if (!webhookResponse.ok) {
-          console.error(`Webhook error: ${webhookResponse.status} ${webhookResponse.statusText}`);
+          throw new Error(`${webhookResponse.status} ${webhookResponse.statusText}`);
         } else {
           console.log('Solicitação de login enviada com sucesso via webhook');
         }
@@ -147,13 +146,11 @@ export const sendMagicLink = async (email: string, companyCode: string) => {
       // Continue even if webhook fails
     }
     
-    // Return success with message based on whether email was sent
+    // Return success with message
     return {
       success: true,
-      message: emailSent
-        ? `Um código de acesso foi enviado para ${email}.`
-        : `Um código de acesso foi gerado. Por favor, entre em contato com o administrador se não recebê-lo.`,
-      code: !emailSent ? code : undefined, // Return code only if email wasn't sent, for testing
+      message: `Um código de acesso foi enviado para ${email}.`,
+      code: process.env.NODE_ENV === 'development' ? code : undefined, // Return code only in development
     };
   } catch (error) {
     console.error("Error in sendMagicLink:", error);
