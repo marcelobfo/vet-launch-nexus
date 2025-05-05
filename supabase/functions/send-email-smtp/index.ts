@@ -1,156 +1,126 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { SmtpClient } from "https://deno.land/x/smtp@v0.7.0/mod.ts";
-
-interface EmailRequest {
-  to: string;
-  subject: string;
-  body: string;
-  companyId: string;
-  whatsapp?: string;
-  code?: string;
-  companyCode?: string;
-}
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
-  if (req.method === "OPTIONS") {
+  if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log("Received email request");
-    const { to, subject, body, companyId, whatsapp, code, companyCode } = await req.json() as EmailRequest;
-    
+    const { to, subject, body, companyId, whatsapp, code } = await req.json();
+
     if (!to || !subject || !body || !companyId) {
-      console.error("Missing required parameters:", { to, subject, body: body ? "exists" : "missing", companyId });
-      return new Response(
-        JSON.stringify({ error: "Missing required parameters" }),
-        { 
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 400 
-        }
-      );
+      return new Response(JSON.stringify({ 
+        error: 'Parâmetros incompletos'
+      }), {
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        status: 400
+      });
     }
 
-    // Get company SMTP settings and WhatsApp webhook from database
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") as string;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") as string;
-    
-    console.log("Creating Supabase client");
-    // Create a Supabase client
-    const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
-    const supabaseAdmin = createClient(supabaseUrl, supabaseKey);
-    
-    // Get company SMTP settings
-    console.log("Getting company SMTP settings for company ID:", companyId);
-    const { data: company, error: companyError } = await supabaseAdmin
-      .from("companies")
-      .select("smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from, whatsapp_webhook_url")
-      .eq("id", companyId)
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') as string;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Get company's SMTP settings
+    const { data: company, error: companyError } = await supabase
+      .from('company_with_users')  // Use the view that includes users
+      .select('*')
+      .eq('id', companyId)
       .single();
-    
+      
     if (companyError || !company || !company.smtp_host) {
-      console.error("Error getting company SMTP settings:", companyError);
-      console.log("Company data:", company);
-      return new Response(
-        JSON.stringify({ error: "Invalid company or SMTP settings not configured" }),
-        { 
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 404 
-        }
-      );
+      return new Response(JSON.stringify({ 
+        error: 'Configurações SMTP não encontradas'
+      }), {
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        status: 404
+      });
     }
-    
-    // Send WhatsApp message if webhook and phone number are provided
-    if (company.whatsapp_webhook_url && whatsapp && (code || companyCode)) {
-      try {
-        console.log("Sending WhatsApp notification to:", whatsapp);
-        
-        // Send access code via WhatsApp webhook
-        const whatsappResponse = await fetch(company.whatsapp_webhook_url, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            phoneNumber: whatsapp,
-            message: code 
-              ? `Seu código de acesso para Vet Pro 360: ${code}` 
-              : `Código da sua empresa no Vet Pro 360: ${companyCode}`,
-            type: code ? "access_code" : "company_code",
-            timestamp: new Date().toISOString()
-          }),
-        });
-        
-        if (!whatsappResponse.ok) {
-          console.error("WhatsApp webhook error:", await whatsappResponse.text());
-        } else {
-          console.log("WhatsApp notification sent successfully");
-        }
-      } catch (whatsappError) {
-        console.error("Error sending WhatsApp notification:", whatsappError);
-        // Don't fail if WhatsApp fails, still try to send email
-      }
-    }
-    
-    // Setup SMTP client with company settings
+
+    // Configure SMTP client
     const client = new SmtpClient();
     
     try {
-      console.log("Connecting to SMTP server:", company.smtp_host, "port:", company.smtp_port || 587);
       await client.connectTLS({
         hostname: company.smtp_host,
-        port: company.smtp_port || 587,
+        port: company.smtp_port || 465,
         username: company.smtp_user,
         password: company.smtp_pass,
+        debug: true,
       });
-      
-      console.log("Connected to SMTP server, sending email to:", to, "from:", company.smtp_from);
       
       // Send email
       await client.send({
         from: company.smtp_from,
-        to: [to],
+        to: to,
         subject: subject,
-        content: "text/html", // Explicitly set HTML format
+        content: body,
         html: body,
       });
       
       await client.close();
-      
-      console.log("Email sent successfully to:", to);
-      
-      return new Response(
-        JSON.stringify({ success: true, message: "Email sent successfully" }),
-        { 
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 200 
-        }
-      );
     } catch (smtpError) {
-      console.error("SMTP error:", smtpError);
-      return new Response(
-        JSON.stringify({ error: `SMTP error: ${smtpError.message}` }),
-        { 
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 500 
-        }
-      );
+      console.error("SMTP Error:", smtpError);
+      return new Response(JSON.stringify({ 
+        error: `Erro SMTP: ${smtpError.message}`
+      }), {
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        status: 500
+      });
     }
-  } catch (error) {
-    console.error("Error in send-email-smtp function:", error);
-    return new Response(
-      JSON.stringify({ error: `Error sending email: ${error.message}` }),
-      { 
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 500 
+
+    // If there's a WhatsApp webhook URL and a WhatsApp number, send the code via WhatsApp webhook too
+    if (company.whatsapp_webhook_url && whatsapp && code) {
+      try {
+        const whatsappResponse = await fetch(company.whatsapp_webhook_url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            type: 'access_code',
+            data: {
+              phone: whatsapp,
+              code: code,
+              email: to,
+              timestamp: new Date().toISOString()
+            }
+          }),
+        });
+
+        if (!whatsappResponse.ok) {
+          console.error(`WhatsApp webhook error: ${whatsappResponse.status} ${whatsappResponse.statusText}`);
+        }
+      } catch (whatsappError) {
+        console.error("WhatsApp webhook error:", whatsappError);
+        // We don't want to fail the whole request if WhatsApp webhook fails
       }
-    );
+    }
+    
+    return new Response(JSON.stringify({ 
+      success: true,
+      message: 'Email enviado com sucesso'
+    }), {
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      status: 200
+    });
+  } catch (error) {
+    console.error("Error:", error);
+    return new Response(JSON.stringify({ 
+      error: `Erro ao enviar email: ${error.message}`
+    }), {
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      status: 500
+    });
   }
-});
+})

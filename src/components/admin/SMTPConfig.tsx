@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Mail, Server, Send, Check, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 
 const SMTPConfig = () => {
   const { toast } = useToast();
@@ -232,7 +231,8 @@ const SMTPConfig = () => {
           data: {
             message: 'Teste de webhook do WhatsApp',
             timestamp: new Date().toISOString(),
-            phoneNumber: company?.users?.[0]?.whatsapp || '5511999999999' // Número de exemplo se não houver
+            phoneNumber: company?.users && company.users.length > 0 && company.users[0].whatsapp ? 
+              company.users[0].whatsapp : '5511999999999' // Número de exemplo se não houver
           }
         }),
       });

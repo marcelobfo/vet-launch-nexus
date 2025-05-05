@@ -45,6 +45,13 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "access_codes_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company_with_users"
+            referencedColumns: ["id"]
+          },
         ]
       }
       companies: {
@@ -61,6 +68,7 @@ export type Database = {
           smtp_port: number | null
           smtp_user: string | null
           webhook_url: string | null
+          whatsapp_webhook_url: string | null
         }
         Insert: {
           allow_signup?: boolean | null
@@ -75,6 +83,7 @@ export type Database = {
           smtp_port?: number | null
           smtp_user?: string | null
           webhook_url?: string | null
+          whatsapp_webhook_url?: string | null
         }
         Update: {
           allow_signup?: boolean | null
@@ -89,6 +98,7 @@ export type Database = {
           smtp_port?: number | null
           smtp_user?: string | null
           webhook_url?: string | null
+          whatsapp_webhook_url?: string | null
         }
         Relationships: []
       }
@@ -132,6 +142,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company_with_users"
             referencedColumns: ["id"]
           },
           {
@@ -188,11 +205,36 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "users_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company_with_users"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
     Views: {
-      [_ in never]: never
+      company_with_users: {
+        Row: {
+          allow_signup: boolean | null
+          code: string | null
+          created_at: string | null
+          id: string | null
+          is_active: boolean | null
+          name: string | null
+          smtp_from: string | null
+          smtp_host: string | null
+          smtp_pass: string | null
+          smtp_port: number | null
+          smtp_user: string | null
+          users: Json | null
+          webhook_url: string | null
+          whatsapp_webhook_url: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never
