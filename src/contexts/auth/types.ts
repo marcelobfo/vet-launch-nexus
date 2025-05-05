@@ -33,3 +33,18 @@ export type Session = {
   user: User;
   company: Company;
 };
+
+export type AuthState = {
+  user: User | null;
+  company: Company | null;
+  isLoading: boolean;
+};
+
+export type AuthContextType = AuthState & {
+  signIn: (email: string, companyCode: string) => Promise<{ success: boolean; message: string }>;
+  signOut: () => Promise<void>;
+  sendLoginCode: (email: string, companyCode: string) => Promise<{ success: boolean; message: string }>;
+  verifyLoginCode: (email: string, code: string, companyCode: string) => Promise<{ success: boolean; message: string }>;
+  sendMagicLink: (email: string, companyCode: string) => Promise<{ success: boolean; message: string }>;
+  register: (userData: { name: string; email: string; whatsapp: string; companyName: string }) => Promise<{ success: boolean; message: string; companyCode?: string; code?: string }>;
+};

@@ -1,9 +1,8 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { User, Company } from '@/lib/supabase';
+import { User, Company } from './types';
 import { AuthState, AuthContextType } from './types';
 import { sendMagicLink } from './magicLinkAuth';
 import { sendLoginCode, verifyLoginCode as verifyCode } from './accessCodeAuth';

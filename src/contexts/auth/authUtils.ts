@@ -52,3 +52,40 @@ export const updateUserLastLogin = async (userId: string) => {
     console.error("Error in updateUserLastLogin:", error);
   }
 };
+
+// Generate a unique company code (6 characters alphanumeric)
+export const generateCompanyCode = (): string => {
+  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let code = '';
+  
+  // Generate a 6-character code
+  for (let i = 0; i < 6; i++) {
+    const randomIndex = Math.floor(Math.random() * characters.length);
+    code += characters.charAt(randomIndex);
+  }
+  
+  return code;
+};
+
+// Get user session from localStorage
+export const getSessionFromLocalStorage = (): Session | null => {
+  try {
+    const sessionData = localStorage.getItem('session');
+    if (sessionData) {
+      return JSON.parse(sessionData) as Session;
+    }
+    return null;
+  } catch (error) {
+    console.error("Error parsing session from localStorage:", error);
+    return null;
+  }
+};
+
+// Clear user session from localStorage
+export const clearSessionFromLocalStorage = (): void => {
+  try {
+    localStorage.removeItem('session');
+  } catch (error) {
+    console.error("Error clearing session from localStorage:", error);
+  }
+};
