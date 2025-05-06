@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { NavBar } from '@/components/NavBar';
@@ -23,6 +22,7 @@ import WebhookSettings from '@/components/admin/WebhookSettings';
 import SecuritySettings from '@/components/admin/SecuritySettings';
 import ReportPdfView from '@/components/admin/ReportPdfView';
 import FacebookApiConfig from '@/components/admin/FacebookApiConfig';
+import TemplateModels from '@/components/admin/TemplateModels';
 import { supabase } from '@/integrations/supabase/client';
 import { generateROIChartData, generateConversionChartData, calculatePerformanceMetrics } from '@/utils/chartDataUtils';
 
@@ -46,23 +46,28 @@ const Admin = ({ isDarkTheme, setIsDarkTheme }: AdminProps) => {
     industry: '',
     size: '',
     logo: '',
-    // Add the missing properties required by TextsForm
-    heroTitle: '',
-    heroSubtitle: '',
-    aboutText: '',
-    // Add the missing properties required by ColorSchemeForm
-    primaryColor: '#00A3E0',
-    secondaryColor: '#F28B00',
-    accentColor: '#95D600',
+    // Properties for TextsForm
+    heroTitle: 'Gerenciador de Lançamentos',
+    heroSubtitle: 'Estratégia completa para transformar seu conhecimento em um negócio digital de sucesso.',
+    aboutText: 'Método 6 em 7',
+    heroFeatures: [
+      { title: "Pré-Lançamento", desc: "Construção de autoridade e captação de leads qualificados", color: "bg-primary" },
+      { title: "Evento de Lançamento", desc: "Aulas ao vivo com alta conversão e engajamento", color: "bg-accent" },
+      { title: "Automação Inteligente", desc: "Fluxos de WhatsApp e E-mail para maximizar resultados", color: "bg-blue-600" }
+    ],
+    // Properties for ColorSchemeForm
+    primaryColor: '#4361ee',
+    secondaryColor: '#3f37c9',
+    accentColor: '#4cc9f0',
     colors: {
-      primary: '#00A3E0',
-      secondary: '#F28B00',
-      accent: '#95D600'
+      primary: '#4361ee',
+      secondary: '#3f37c9',
+      accent: '#4cc9f0'
     },
     texts: {
-      slogan: 'Transformando o atendimento veterinário digital',
-      aboutShort: 'Soluções digitais para clínicas e hospitais veterinários',
-      about: 'Nossa plataforma oferece ferramentas completas para gestão de clínicas veterinárias, incluindo prontuário eletrônico, agendamento online e comunicação com tutores.'
+      slogan: 'Transformando seu conhecimento em negócio digital',
+      aboutShort: 'Soluções digitais para lançamentos de sucesso',
+      about: 'Nossa plataforma oferece ferramentas completas para gestão de lançamentos digitais, incluindo planejamento, automação e monitoramento de resultados.'
     }
   });
 
@@ -167,7 +172,27 @@ const Admin = ({ isDarkTheme, setIsDarkTheme }: AdminProps) => {
   });
 
   useEffect(() => {
-    document.title = "Painel Administrativo | Vet Launch Nexus";
+    document.title = "Painel Administrativo | Gerenciador de Lançamentos";
+    
+    // Load stored site configuration
+    const storedConfig = localStorage.getItem('siteConfig');
+    if (storedConfig) {
+      try {
+        const config = JSON.parse(storedConfig);
+        // Update company info
+        setCompanyInfo(prev => ({
+          ...prev,
+          ...config.companyInfo,
+          name: company?.name || config.companyInfo?.name || prev.name,
+          primaryColor: config.colors?.primary || prev.primaryColor,
+          secondaryColor: config.colors?.secondary || prev.secondaryColor,
+          accentColor: config.colors?.accent || prev.accentColor,
+          colors: config.colors || prev.colors
+        }));
+      } catch (error) {
+        console.error("Error parsing stored config:", error);
+      }
+    }
     
     // If we have company data from auth context, update the state
     if (company) {
@@ -235,23 +260,80 @@ const Admin = ({ isDarkTheme, setIsDarkTheme }: AdminProps) => {
     }, 2000);
   };
 
+  const saveSettings = () => {
+    // Prepare the configuration to save
+    const config = {
+      companyInfo: {
+        name: companyInfo.name,
+        website: companyInfo.website,
+        heroTitle: companyInfo.heroTitle,
+        heroSubtitle: companyInfo.heroSubtitle,
+        aboutText: companyInfo.aboutText,
+        heroFeatures: companyInfo.heroFeatures
+      },
+      colors: {
+        primary: companyInfo.primaryColor || companyInfo.colors.primary,
+        secondary: companyInfo.secondaryColor || companyInfo.colors.secondary,
+        accent: companyInfo.accentColor || companyInfo.colors.accent
+      },
+      metrics: {
+        campaignBudget: metrics.campaignBudget,
+        leadCost: metrics.leadCost,
+        conversionRate: metrics.conversionRate,
+        averageTicket: metrics.averageTicket,
+        clientLifetime: metrics.clientLifetime,
+        websiteConversion: metrics.websiteConversion,
+        socialMediaCost: metrics.socialMediaCost,
+        emailMarketingCost: metrics.emailMarketingCost,
+        contentMarketingCost: metrics.contentMarketingCost,
+        paidMediaCost: metrics.paidMediaCost,
+        hotLeadConversion: metrics.hotLeadConversion,
+        coldLeadConversion: metrics.coldLeadConversion,
+        landingPageConversion: metrics.landingPageConversion,
+        campaignConversion: metrics.campaignConversion,
+        cpc: metrics.cpc,
+        ctr: metrics.ctr,
+        productValue: metrics.productValue
+      }
+    };
+    
+    // Save to localStorage
+    localStorage.setItem('siteConfig', JSON.stringify(config));
+    
+    toast({
+      title: "Configurações salvas",
+      description: "As alterações foram salvas com sucesso."
+    });
+    
+    // Reload the page to apply changes
+    setTimeout(() => {
+      window.location.reload();
+    }, 1500);
+  };
+
   return (
-    <div className="min-h-screen bg-vet-dark text-white">
+    <div className="min-h-screen bg-card text-white">
       <NavBar isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
       
       <div className="container mx-auto py-8 px-4">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold">Painel Administrativo</h1>
-          <Button onClick={() => navigate('/')} variant="outline">
-            Voltar para o site
-          </Button>
+          <div className="flex gap-3">
+            <Button onClick={saveSettings} variant="default">
+              Salvar Alterações
+            </Button>
+            <Button onClick={() => navigate('/')} variant="outline">
+              Voltar para o site
+            </Button>
+          </div>
         </div>
         
         <Tabs value={currentTab} onValueChange={setCurrentTab} className="space-y-6">
           <div className="bg-card rounded-lg p-1 overflow-x-auto">
             <TabsList className="flex space-x-1 w-max min-w-full">
               <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-              <TabsTrigger value="company">Informações da Empresa</TabsTrigger>
+              <TabsTrigger value="templates">Modelos de Página</TabsTrigger>
+              <TabsTrigger value="company">Personalização</TabsTrigger>
               <TabsTrigger value="marketing">Marketing</TabsTrigger>
               <TabsTrigger value="users">Usuários</TabsTrigger>
               <TabsTrigger value="projects">Projetos</TabsTrigger>
@@ -328,6 +410,11 @@ const Admin = ({ isDarkTheme, setIsDarkTheme }: AdminProps) => {
             </div>
           </TabsContent>
           
+          {/* Templates Tab */}
+          <TabsContent value="templates" className="space-y-6">
+            <TemplateModels />
+          </TabsContent>
+          
           {/* Company Tab */}
           <TabsContent value="company" className="space-y-6">
             <CompanyInfoForm 
@@ -339,7 +426,8 @@ const Admin = ({ isDarkTheme, setIsDarkTheme }: AdminProps) => {
               companyInfo={{
                 heroTitle: companyInfo.heroTitle || companyInfo.texts?.slogan || '',
                 heroSubtitle: companyInfo.heroSubtitle || companyInfo.texts?.aboutShort || '',
-                aboutText: companyInfo.aboutText || companyInfo.texts?.about || ''
+                aboutText: companyInfo.aboutText || companyInfo.texts?.about || '',
+                heroFeatures: companyInfo.heroFeatures
               }} 
               handleCompanyInfoChange={handleCompanyInfoChange} 
             />

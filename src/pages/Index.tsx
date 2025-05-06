@@ -19,11 +19,27 @@ const Index = ({ isDarkTheme, setIsDarkTheme }: IndexProps) => {
   const { user, company } = useAuth();
   
   useEffect(() => {
-    document.title = "Vet Launch Nexus | Estratégia de Lançamento para Veterinários";
+    // Load title from localStorage if available
+    const storedConfig = localStorage.getItem('siteConfig');
+    if (storedConfig) {
+      try {
+        const { companyInfo } = JSON.parse(storedConfig);
+        if (companyInfo && companyInfo.heroTitle) {
+          document.title = `${companyInfo.heroTitle} | Estratégia de Lançamento`;
+        } else {
+          document.title = "Gerenciador de Lançamentos | Estratégia de Lançamento";
+        }
+      } catch (error) {
+        console.error("Error parsing stored config:", error);
+        document.title = "Gerenciador de Lançamentos | Estratégia de Lançamento";
+      }
+    } else {
+      document.title = "Gerenciador de Lançamentos | Estratégia de Lançamento";
+    }
   }, []);
 
   return (
-    <div className="min-h-screen bg-vet-dark text-white overflow-x-hidden">
+    <div className="min-h-screen bg-card text-white overflow-x-hidden">
       <NavBar isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
       <Hero />
       <LaunchStrategy />
