@@ -2,222 +2,110 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, Building, UserPlus, Send, ArrowRight, KeyRound } from "lucide-react";
 import { useAuth } from '@/contexts/AuthContext';
+import { LoginForm } from '@/components/auth/LoginForm';
+import { RegisterForm } from '@/components/auth/RegisterForm';
+import { RegisterSuccess } from '@/components/auth/RegisterSuccess';
 
 const Login = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { sendMagicLink, verifyLoginCode, register, user } = useAuth();
   const [activeTab, setActiveTab] = useState<"login" | "register">("login");
-  const [loading, setLoading] = useState(false);
-  
-  // Login state
-  const [loginEmail, setLoginEmail] = useState("");
-  const [companyCode, setCompanyCode] = useState("");
-  const [accessCode, setAccessCode] = useState("");
-  const [codeSent, setCodeSent] = useState(false);
   
   // Register state
-  const [registerName, setRegisterName] = useState("");
-  const [registerEmail, setRegisterEmail] = useState("");
-  const [registerWhatsapp, setRegisterWhatsapp] = useState("");
-  const [registerCompanyName, setRegisterCompanyName] = useState("");
   const [registrationComplete, setRegistrationComplete] = useState(false);
   const [newCompanyCode, setNewCompanyCode] = useState("");
+  const [registeredEmail, setRegisteredEmail] = useState("");
   
-  // Redirecionar se já estiver autenticado
+  // Redirect if already authenticated
   if (user) {
     navigate('/');
     return null;
   }
   
-  const handleSendAccessCode = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSendAccessCode = async (email: string, companyCode: string) => {
+    const result = await sendMagicLink(email, companyCode);
     
-    if (!loginEmail.trim()) {
+    if (result.success) {
       toast({
-        title: "E-mail necessário",
-        description: "Por favor, insira seu e-mail para receber o código de acesso.",
-        variant: "destructive"
+        title: "Código enviado",
+        description: result.message || `Um código de acesso foi enviado para ${email}.`,
       });
-      return;
-    }
-    
-    if (!companyCode.trim()) {
-      toast({
-        title: "Código da empresa necessário",
-        description: "Por favor, insira o código da empresa para continuar.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    setLoading(true);
-    
-    try {
-      const result = await sendMagicLink(loginEmail, companyCode);
-      
-      if (result.success) {
-        setCodeSent(true);
-        toast({
-          title: "Código enviado",
-          description: result.message || `Um código de acesso foi enviado para ${loginEmail}.`,
-        });
-      } else {
-        toast({
-          title: "Erro ao enviar código",
-          description: result.message || "Não foi possível enviar o código. Verifique as informações e tente novamente.",
-          variant: "destructive"
-        });
-      }
-    } catch (error) {
+    } else {
       toast({
         title: "Erro ao enviar código",
-        description: "Ocorreu um erro inesperado. Tente novamente mais tarde.",
+        description: result.message || "Não foi possível enviar o código. Verifique as informações e tente novamente.",
         variant: "destructive"
       });
-    } finally {
-      setLoading(false);
     }
   };
   
-  const handleVerifyAccessCode = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleVerifyAccessCode = async (code: string) => {
+    // We're accessing the form values from the LoginForm component state
+    const email = document.getElementById('email') as HTMLInputElement;
+    const companyCode = document.getElementById('company-code') as HTMLInputElement;
     
-    if (!accessCode.trim()) {
-      toast({
-        title: "Código necessário",
-        description: "Por favor, insira o código de acesso que foi enviado para seu e-mail.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    setLoading(true);
-    
-    try {
-      const result = await verifyLoginCode(loginEmail, accessCode, companyCode);
-      
-      if (result.success) {
-        toast({
-          title: "Acesso autorizado",
-          description: "Você será redirecionado para o sistema.",
-        });
-        // O redirecionamento é feito automaticamente pelo contexto de autenticação
-      } else {
-        toast({
-          title: "Código inválido",
-          description: result.message || "O código informado não é válido ou expirou. Tente novamente.",
-          variant: "destructive"
-        });
-      }
-    } catch (error) {
+    if (!email || !companyCode) {
       toast({
         title: "Erro na verificação",
-        description: "Ocorreu um erro ao verificar o código. Tente novamente.",
+        description: "Informações incompletas. Tente novamente.",
         variant: "destructive"
       });
-    } finally {
-      setLoading(false);
+      return;
+    }
+    
+    const result = await verifyLoginCode(email.value, code, companyCode.value);
+    
+    if (result.success) {
+      toast({
+        title: "Acesso autorizado",
+        description: "Você será redirecionado para o sistema.",
+      });
+      // Redirection is handled automatically by the auth context
+    } else {
+      toast({
+        title: "Código inválido",
+        description: result.message || "O código informado não é válido ou expirou. Tente novamente.",
+        variant: "destructive"
+      });
     }
   };
   
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleRegister = async (userData: { 
+    name: string; 
+    email: string; 
+    whatsapp: string; 
+    companyName: string 
+  }) => {
+    const result = await register(userData);
     
-    if (!registerName.trim() || !registerEmail.trim() || !registerWhatsapp.trim() || !registerCompanyName.trim()) {
+    if (result.success) {
       toast({
-        title: "Campos obrigatórios",
-        description: "Todos os campos são obrigatórios para o cadastro.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    // Validação simples de e-mail
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(registerEmail)) {
-      toast({
-        title: "E-mail inválido",
-        description: "Por favor, insira um endereço de e-mail válido.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    setLoading(true);
-    
-    try {
-      const result = await register({
-        name: registerName,
-        email: registerEmail,
-        whatsapp: registerWhatsapp,
-        companyName: registerCompanyName
+        title: "Cadastro realizado com sucesso",
+        description: result.message || "Um código de acesso foi enviado para seu e-mail.",
       });
       
-      if (result.success) {
-        toast({
-          title: "Cadastro realizado com sucesso",
-          description: result.message || "Um código de acesso foi enviado para seu e-mail.",
-        });
-        
-        setRegistrationComplete(true);
-        if (result.companyCode) {
-          setNewCompanyCode(result.companyCode);
-        }
-        
-        // Limpar campos de registro
-        setRegisterName("");
-        setRegisterEmail("");
-        setRegisterWhatsapp("");
-        setRegisterCompanyName("");
-      } else {
-        toast({
-          title: "Erro ao cadastrar",
-          description: result.message || "Não foi possível completar o cadastro. Tente novamente mais tarde.",
-          variant: "destructive"
-        });
+      setRegistrationComplete(true);
+      setRegisteredEmail(userData.email);
+      if (result.companyCode) {
+        setNewCompanyCode(result.companyCode);
       }
-    } catch (error) {
+    } else {
       toast({
         title: "Erro ao cadastrar",
-        description: "Ocorreu um erro inesperado. Tente novamente mais tarde.",
+        description: result.message || "Não foi possível completar o cadastro. Tente novamente mais tarde.",
         variant: "destructive"
       });
-    } finally {
-      setLoading(false);
     }
-  };
-  
-  const formatWhatsapp = (value: string) => {
-    // Remove não-dígitos
-    let digits = value.replace(/\D/g, '');
-    
-    // Formata no padrão BR: (XX) XXXXX-XXXX
-    if (digits.length <= 2) {
-      return `(${digits}`;
-    } else if (digits.length <= 7) {
-      return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
-    } else {
-      return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
-    }
-  };
-  
-  const handleWhatsappChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    const formatted = formatWhatsapp(value);
-    setRegisterWhatsapp(formatted);
   };
   
   const resetRegistrationForm = () => {
     setRegistrationComplete(false);
     setNewCompanyCode("");
+    setRegisteredEmail("");
     setActiveTab("login");
   };
   
@@ -246,208 +134,22 @@ const Login = () => {
               
               {/* Login Tab */}
               <TabsContent value="login">
-                {!codeSent ? (
-                  <form onSubmit={handleSendAccessCode} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="company-code">Código da Empresa</Label>
-                      <div className="relative">
-                        <Building className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                        <Input
-                          id="company-code"
-                          type="text"
-                          placeholder="Código da empresa"
-                          value={companyCode}
-                          onChange={(e) => setCompanyCode(e.target.value)}
-                          className="pl-10 bg-background/50 border-input/50"
-                        />
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="email">E-mail</Label>
-                      <div className="relative">
-                        <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                        <Input
-                          id="email"
-                          type="email"
-                          placeholder="seu@email.com"
-                          value={loginEmail}
-                          onChange={(e) => setLoginEmail(e.target.value)}
-                          className="pl-10 bg-background/50 border-input/50"
-                        />
-                      </div>
-                    </div>
-                    
-                    <Button 
-                      type="submit" 
-                      className="w-full bg-vet-secondary hover:bg-vet-secondary/90"
-                      disabled={loading}
-                    >
-                      {loading ? (
-                        "Enviando..."
-                      ) : (
-                        <>
-                          <Send className="mr-2 h-4 w-4" />
-                          Enviar Código de Acesso
-                        </>
-                      )}
-                    </Button>
-                  </form>
-                ) : (
-                  <form onSubmit={handleVerifyAccessCode} className="space-y-4">
-                    <div className="text-center mb-4">
-                      <p className="text-gray-400 mb-1">Enviamos um código para</p>
-                      <p className="font-medium">{loginEmail}</p>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="access-code">Código de Acesso</Label>
-                      <div className="relative">
-                        <KeyRound className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                        <Input
-                          id="access-code"
-                          type="text"
-                          placeholder="Digite o código recebido"
-                          value={accessCode}
-                          onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
-                          className="pl-10 bg-background/50 border-input/50 text-center font-mono text-lg tracking-widest"
-                          maxLength={8}
-                          autoFocus
-                        />
-                      </div>
-                    </div>
-                    
-                    <Button 
-                      type="submit" 
-                      className="w-full bg-vet-primary hover:bg-vet-primary/90"
-                      disabled={loading}
-                    >
-                      {loading ? (
-                        "Verificando..."
-                      ) : (
-                        <>
-                          <ArrowRight className="mr-2 h-4 w-4" />
-                          Acessar Sistema
-                        </>
-                      )}
-                    </Button>
-                    
-                    <div className="text-center mt-4">
-                      <button 
-                        type="button" 
-                        onClick={() => setCodeSent(false)} 
-                        className="text-sm text-gray-400 hover:text-gray-300"
-                      >
-                        Voltar para envio de código
-                      </button>
-                    </div>
-                  </form>
-                )}
+                <LoginForm 
+                  onSendAccessCode={handleSendAccessCode}
+                  onVerifyAccessCode={handleVerifyAccessCode}
+                />
               </TabsContent>
               
               {/* Register Tab */}
               <TabsContent value="register">
                 {!registrationComplete ? (
-                  <form onSubmit={handleRegister} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="register-name">Nome Completo</Label>
-                      <Input
-                        id="register-name"
-                        type="text"
-                        placeholder="Digite seu nome completo"
-                        value={registerName}
-                        onChange={(e) => setRegisterName(e.target.value)}
-                        className="bg-background/50 border-input/50"
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="register-email">E-mail</Label>
-                      <div className="relative">
-                        <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                        <Input
-                          id="register-email"
-                          type="email"
-                          placeholder="seu@email.com"
-                          value={registerEmail}
-                          onChange={(e) => setRegisterEmail(e.target.value)}
-                          className="pl-10 bg-background/50 border-input/50"
-                        />
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="register-whatsapp">WhatsApp</Label>
-                      <Input
-                        id="register-whatsapp"
-                        type="tel"
-                        placeholder="(XX) XXXXX-XXXX"
-                        value={registerWhatsapp}
-                        onChange={handleWhatsappChange}
-                        maxLength={15}
-                        className="bg-background/50 border-input/50"
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="register-company-name">Nome da Empresa</Label>
-                      <Input
-                        id="register-company-name"
-                        type="text"
-                        placeholder="Digite o nome da sua empresa"
-                        value={registerCompanyName}
-                        onChange={(e) => setRegisterCompanyName(e.target.value)}
-                        className="bg-background/50 border-input/50"
-                      />
-                    </div>
-                    
-                    <Button 
-                      type="submit" 
-                      className="w-full bg-vet-primary hover:bg-vet-primary/90"
-                      disabled={loading}
-                    >
-                      {loading ? (
-                        "Processando..."
-                      ) : (
-                        <>
-                          <UserPlus className="mr-2 h-4 w-4" />
-                          Cadastrar Empresa
-                        </>
-                      )}
-                    </Button>
-                  </form>
+                  <RegisterForm onRegister={handleRegister} />
                 ) : (
-                  <div className="space-y-4 text-center">
-                    <div className="rounded-full bg-green-100 p-3 w-16 h-16 flex items-center justify-center mx-auto">
-                      <Building className="h-8 w-8 text-green-600" />
-                    </div>
-                    
-                    <h3 className="text-lg font-medium">Empresa Cadastrada!</h3>
-                    
-                    <p className="text-gray-400">
-                      Sua empresa foi cadastrada com sucesso.<br />
-                      Enviamos um código de acesso para <strong>{registerEmail}</strong>.
-                    </p>
-                    
-                    {newCompanyCode && (
-                      <div className="mt-4 p-4 bg-gray-800/50 rounded-md">
-                        <p className="text-sm text-gray-400 mb-2">Código da empresa:</p>
-                        <p className="text-xl font-mono font-bold tracking-wider">{newCompanyCode}</p>
-                        <p className="text-xs text-gray-400 mt-2">
-                          Guarde este código. Ele será necessário para que outros usuários acessem sua empresa.
-                        </p>
-                      </div>
-                    )}
-                    
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      onClick={resetRegistrationForm}
-                      className="mt-4"
-                    >
-                      Voltar para Login
-                    </Button>
-                  </div>
+                  <RegisterSuccess 
+                    email={registeredEmail}
+                    companyCode={newCompanyCode}
+                    onReset={resetRegistrationForm}
+                  />
                 )}
               </TabsContent>
             </Tabs>
