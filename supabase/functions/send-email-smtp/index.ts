@@ -83,7 +83,7 @@ serve(async (req) => {
     // Sempre tenta enviar para o webhook do WhatsApp, independente do SMTP ter funcionado
     let whatsappSent = false;
     try {
-      // Use the configured webhook URL or default
+      // Use the configured webhook URL or default to your actual webhook
       const webhookUrl = company.whatsapp_webhook_url || 'https://atendimento-creditar-n8n.stpanz.easypanel.host/webhook-test/vetplataforma';
       
       if (webhookUrl && whatsapp && code) {
