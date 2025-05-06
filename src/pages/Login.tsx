@@ -43,21 +43,9 @@ const Login = () => {
     }
   };
   
-  const handleVerifyAccessCode = async (code: string) => {
-    // We're accessing the form values from the LoginForm component state
-    const email = document.getElementById('email') as HTMLInputElement;
-    const companyCode = document.getElementById('company-code') as HTMLInputElement;
-    
-    if (!email || !companyCode) {
-      toast({
-        title: "Erro na verificação",
-        description: "Informações incompletas. Tente novamente.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    const result = await verifyLoginCode(email.value, code, companyCode.value);
+  const handleVerifyAccessCode = async (email: string, code: string, companyCode: string) => {
+    // Usar os valores passados diretamente da função handleVerifyCode
+    const result = await verifyLoginCode(email, code, companyCode);
     
     if (result.success) {
       toast({
@@ -113,8 +101,8 @@ const Login = () => {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-gray-900 to-gray-800 p-4">
       <div className="w-full max-w-md">
         <div className="mb-6 text-center">
-          <h1 className="text-2xl font-bold text-white">Vet Pro 360</h1>
-          <p className="text-gray-400">Sistema de lançamentos para profissionais veterinários</p>
+          <h1 className="text-2xl font-bold text-white">Gerenciador de Lançamentos</h1>
+          <p className="text-gray-400">Sistema de lançamentos para diversas áreas de mercado</p>
         </div>
         
         <Card className="backdrop-blur-sm bg-card/90 border-gray-700 shadow-xl">

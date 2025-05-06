@@ -74,10 +74,10 @@ export const sendMagicLink = async (email: string, companyCode: string) => {
       await supabase.functions.invoke('send-email-smtp', {
         body: {
           to: email,
-          subject: 'Seu Código de Acesso - Vet Pro 360',
+          subject: 'Seu Código de Acesso - Gerenciador de Lançamentos',
           body: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
-              <h2 style="color: #4f46e5; text-align: center;">Vet Pro 360</h2>
+              <h2 style="color: #4f46e5; text-align: center;">Gerenciador de Lançamentos</h2>
               <h3 style="text-align: center;">Seu Código de Acesso</h3>
               <p>Use o código abaixo para acessar o sistema:</p>
               <div style="background-color: #f3f4f6; padding: 20px; text-align: center; border-radius: 5px; margin: 20px 0;">
@@ -87,7 +87,7 @@ export const sendMagicLink = async (email: string, companyCode: string) => {
               </div>
               <p>Este código é válido por 30 minutos.</p>
               <div style="text-align: center; margin-top: 30px; color: #6b7280; font-size: 12px;">
-                <p>© ${new Date().getFullYear()} Vet Pro 360. Todos os direitos reservados.</p>
+                <p>© ${new Date().getFullYear()} Gerenciador de Lançamentos. Todos os direitos reservados.</p>
               </div>
             </div>
           `,
@@ -104,7 +104,7 @@ export const sendMagicLink = async (email: string, companyCode: string) => {
     // Send login request directly to webhook
     try {
       // Get webhook URL - use default if company doesn't have one
-      const webhookUrl = companyData.webhook_url || 'https://atendimento-creditar-n8n.stpanz.easypanel.host/webhook-test/vetplataforma';
+      const webhookUrl = companyData.webhook_url || 'https://atendimento-creditar-n8n.stpanz.easypanel.host/webhook/vetplataforma';
       
       if (webhookUrl) {
         console.log(`Enviando solicitação de login para webhook: ${webhookUrl}`);

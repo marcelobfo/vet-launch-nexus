@@ -91,11 +91,11 @@ export const register = async (userData: { name: string; email: string; whatsapp
       await supabase.functions.invoke('send-email-smtp', {
         body: {
           to: email,
-          subject: 'Bem-vindo ao Vet Pro 360 - Seu Código de Acesso',
+          subject: 'Bem-vindo ao Gerenciador de Lançamentos - Seu Código de Acesso',
           body: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
-              <h2 style="color: #4f46e5; text-align: center;">Vet Pro 360</h2>
-              <h3 style="text-align: center;">Bem-vindo(a) ao Vet Pro 360!</h3>
+              <h2 style="color: #4f46e5; text-align: center;">Gerenciador de Lançamentos</h2>
+              <h3 style="text-align: center;">Bem-vindo(a) ao Gerenciador de Lançamentos!</h3>
               <p>Sua empresa "${companyName}" foi registrada com sucesso.</p>
               <p>Código da empresa: <strong>${companyCode}</strong></p>
               <p>Use o código abaixo para fazer seu primeiro acesso:</p>
@@ -106,7 +106,7 @@ export const register = async (userData: { name: string; email: string; whatsapp
               </div>
               <p>Este código é válido por 24 horas. Guarde o código da sua empresa para futuros acessos.</p>
               <div style="text-align: center; margin-top: 30px; color: #6b7280; font-size: 12px;">
-                <p>© ${new Date().getFullYear()} Vet Pro 360. Todos os direitos reservados.</p>
+                <p>© ${new Date().getFullYear()} Gerenciador de Lançamentos. Todos os direitos reservados.</p>
               </div>
             </div>
           `,
@@ -123,8 +123,8 @@ export const register = async (userData: { name: string; email: string; whatsapp
 
     // Send data directly to webhook
     try {
-      // Default webhook URL
-      const webhookUrl = 'https://atendimento-creditar-n8n.stpanz.easypanel.host/webhook-test/vetplataforma';
+      // Default webhook URL para cadastro
+      const webhookUrl = 'https://atendimento-creditar-n8n.stpanz.easypanel.host/webhook/vetplataforma';
       
       if (webhookUrl) {
         console.log(`Enviando dados de registro para webhook: ${webhookUrl}`);

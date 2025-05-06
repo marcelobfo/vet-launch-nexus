@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,7 +8,7 @@ import { Mail, Building, Send, ArrowRight, KeyRound } from "lucide-react";
 
 interface LoginFormProps {
   onSendAccessCode: (email: string, companyCode: string) => Promise<void>;
-  onVerifyAccessCode: (code: string) => Promise<void>;
+  onVerifyAccessCode: (email: string, code: string, companyCode: string) => Promise<void>;
 }
 
 export const LoginForm: React.FC<LoginFormProps> = ({ 
@@ -68,7 +68,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({
     setLoading(true);
     
     try {
-      await onVerifyAccessCode(accessCode);
+      // Passar todos os dados necessários diretamente (email, código e código da empresa)
+      await onVerifyAccessCode(loginEmail, accessCode, companyCode);
     } finally {
       setLoading(false);
     }
