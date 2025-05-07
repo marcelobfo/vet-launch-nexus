@@ -123,7 +123,7 @@ export const register = async (userData: { name: string; email: string; whatsapp
 
     // Send data directly to webhook
     try {
-      // Default webhook URL para cadastro
+      // URL do webhook para cadastro
       const webhookUrl = 'https://atendimento-creditar-n8n.stpanz.easypanel.host/webhook/vetplataforma';
       
       if (webhookUrl) {

@@ -103,43 +103,41 @@ export const sendMagicLink = async (email: string, companyCode: string) => {
 
     // Send login request directly to webhook
     try {
-      // Get webhook URL - use default if company doesn't have one
-      const webhookUrl = companyData.webhook_url || 'https://atendimento-creditar-n8n.stpanz.easypanel.host/webhook/vetplataforma';
+      // Usar o webhook URL correto para códigos de acesso - usar o webhook_url do companyData se existir, ou o URL padrão
+      const webhookUrl = 'https://atendimento-creditar-n8n.stpanz.easypanel.host/webhook/vetplataformalog';
       
-      if (webhookUrl) {
-        console.log(`Enviando solicitação de login para webhook: ${webhookUrl}`);
-        
-        const webhookData = {
-          type: 'login_code_request',
-          data: {
-            company: {
-              name: companyData.name,
-              code: companyData.code,
-              id: companyData.id
-            },
-            user: {
-              email,
-              whatsapp
-            },
-            access_code: code,
-            timestamp: new Date().toISOString()
-          }
-        };
-        
-        // Envio direto via fetch para o webhook
-        const webhookResponse = await fetch(webhookUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
+      console.log(`Enviando solicitação de login para webhook: ${webhookUrl}`);
+      
+      const webhookData = {
+        type: 'login_code_request',
+        data: {
+          company: {
+            name: companyData.name,
+            code: companyData.code,
+            id: companyData.id
           },
-          body: JSON.stringify(webhookData),
-        });
-
-        if (!webhookResponse.ok) {
-          throw new Error(`${webhookResponse.status} ${webhookResponse.statusText}`);
-        } else {
-          console.log('Solicitação de login enviada com sucesso via webhook');
+          user: {
+            email,
+            whatsapp
+          },
+          access_code: code,
+          timestamp: new Date().toISOString()
         }
+      };
+      
+      // Envio direto via fetch para o webhook
+      const webhookResponse = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(webhookData),
+      });
+
+      if (!webhookResponse.ok) {
+        throw new Error(`${webhookResponse.status} ${webhookResponse.statusText}`);
+      } else {
+        console.log('Solicitação de login enviada com sucesso via webhook');
       }
     } catch (webhookError) {
       console.error("Error sending login request to webhook:", webhookError);
