@@ -81,16 +81,99 @@ const defaultCosts = [
   }
 ];
 
+const confeitariaCosts = [
+  {
+    title: "Fotos e Vídeos",
+    priority: "Alta",
+    description: "Conteúdo visual profissional para redes sociais e material de lançamento.",
+    cost: "R$ 2.000 - R$ 5.000",
+    includes: [
+      "Sessão fotográfica dos produtos",
+      "Vídeos demonstrativos de técnicas",
+      "Depoimentos em vídeo",
+      "Fotos para redes sociais e materiais"
+    ]
+  },
+  {
+    title: "Copywriting",
+    priority: "Alta",
+    description: "Textos persuasivos para páginas de venda, emails e posts.",
+    cost: "R$ 1.500 - R$ 3.000",
+    includes: [
+      "Roteiros para vídeos e lives",
+      "Textos para página de vendas",
+      "Sequência de emails para lançamento",
+      "Escrita de posts para redes sociais"
+    ]
+  },
+  {
+    title: "E-mail Marketing",
+    priority: "Alta",
+    description: "Plataforma para envio de emails e automações.",
+    cost: "R$ 150/mês",
+    includes: [
+      "RD Station ou Mailchimp",
+      "Segmentação de leads",
+      "Automações e disparos",
+      "Relatórios de desempenho"
+    ]
+  },
+  {
+    title: "Plataforma de Páginas",
+    priority: "Alta",
+    description: "Ferramentas para criar landing pages e página de vendas.",
+    cost: "R$ 100 - R$ 300/mês",
+    includes: [
+      "Leadlovers ou Klickpages",
+      "Páginas de captura de leads",
+      "Página de vendas otimizada",
+      "Checkout integrado"
+    ]
+  },
+  {
+    title: "Tráfego Pago",
+    priority: "Alta",
+    description: "Investimento em anúncios para captação de leads e vendas.",
+    cost: "R$ 2.000 - R$ 10.000",
+    includes: [
+      "Anúncios no Facebook e Instagram",
+      "Segmentação para público-alvo",
+      "Remarketing para leads",
+      "Otimização de campanhas"
+    ]
+  },
+  {
+    title: "Atendimento",
+    priority: "Média",
+    description: "Suporte e atendimento durante o lançamento.",
+    cost: "R$ 100 - R$ 800/mês",
+    includes: [
+      "Agente de IA via Manychat ou n8n",
+      "WhatsApp API para automações",
+      "Atendimento humano (opcional)",
+      "CRM para gestão de leads"
+    ]
+  }
+];
+
 const Costs = () => {
   const [costCards, setCostCards] = useState(defaultCosts);
+  const [basicTotal, setBasicTotal] = useState("R$ 8.300");
+  const [completeTotal, setCompleteTotal] = useState("R$ 18.500");
   
   useEffect(() => {
     // Check if there are stored costs in localStorage
     const storedConfig = localStorage.getItem('siteConfig');
     if (storedConfig) {
       try {
-        const { costs } = JSON.parse(storedConfig);
-        if (costs && Array.isArray(costs)) {
+        const { costs, activeTemplateId } = JSON.parse(storedConfig);
+        
+        // If Carla Borges template is active, use confeitaria costs
+        if (activeTemplateId === "template-4") {
+          setCostCards(confeitariaCosts);
+          setBasicTotal("R$ 6.030");
+          setCompleteTotal("R$ 21.750");
+        } else if (costs && Array.isArray(costs)) {
           setCostCards(costs);
         }
       } catch (error) {
@@ -160,13 +243,13 @@ const Costs = () => {
                   <span className="text-sm px-3 py-1 rounded-full bg-secondary/20 text-secondary">
                     Básico
                   </span>
-                  <span className="text-accent font-semibold text-xl">R$ 8.300</span>
+                  <span className="text-accent font-semibold text-xl">{basicTotal}</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-sm px-3 py-1 rounded-full bg-accent/20 text-accent">
                     Completo
                   </span>
-                  <span className="text-accent font-semibold text-xl">R$ 18.500</span>
+                  <span className="text-accent font-semibold text-xl">{completeTotal}</span>
                 </div>
               </div>
               

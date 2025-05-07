@@ -132,6 +132,40 @@ const defaultTemplates: Template[] = [
         accent: "#E91E63"
       }
     }
+  },
+  {
+    id: "template-4",
+    name: "Carla Borges Confeitaria",
+    description: "Modelo de lançamento para confeitaria gourmet",
+    config: {
+      companyInfo: {
+        heroTitle: "Lançamento Confeitaria Gourmet",
+        heroSubtitle: "Estratégia completa para transformar sua confeitaria em um negócio digital de sucesso, com planejamento de lançamento 6 em 7 otimizado para confeiteiros.",
+        aboutText: "Método 6 em 7, Especializado para Confeitaria",
+        heroFeatures: [
+          {
+            title: "Pré-Lançamento",
+            desc: "Construção de autoridade e captação de leads através de conteúdos visuais",
+            color: "bg-pink-600"
+          },
+          {
+            title: "Evento de Lançamento",
+            desc: "Lives demonstrativas com alta conversão e receitas exclusivas",
+            color: "bg-red-600"
+          },
+          {
+            title: "Automação Inteligente",
+            desc: "Fluxos de WhatsApp e E-mail para engajamento e vendas",
+            color: "bg-amber-600"
+          }
+        ]
+      },
+      colors: {
+        primary: "#D81B60",
+        secondary: "#F4511E",
+        accent: "#FFC107"
+      }
+    }
   }
 ];
 
