@@ -1,143 +1,103 @@
 
-import React, { useState } from 'react';
-import { LeadFormData, LandingPageSection } from '@/types';
-import { supabase } from '@/integrations/supabase/client';
-import { check } from 'lucide-react';
+import React from 'react';
+import { LeadFormData } from '@/types';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Check } from "lucide-react";
 
-interface FormSectionProps {
-  content: LandingPageSection['content'];
-  pageId: string;
-  companyCode: string;
-  pageTitle: string;
-  pageSlug: string;
+interface LeadFormProps {
+  onSubmit: (data: LeadFormData) => Promise<void>;
+  formTitle?: string;
+  formDescription?: string;
+  buttonText?: string;
+  showSuccessMessage?: boolean;
+  isSubmitting?: boolean;
 }
 
-const LeadForm: React.FC<FormSectionProps> = ({ content, pageId, companyCode, pageTitle, pageSlug }) => {
-  const [formData, setFormData] = useState<LeadFormData>({
+const LeadForm: React.FC<LeadFormProps> = ({
+  onSubmit,
+  formTitle = "Cadastre-se para saber mais",
+  formDescription = "Preencha o formulário abaixo e entraremos em contato",
+  buttonText = "Enviar",
+  showSuccessMessage = false,
+  isSubmitting = false
+}) => {
+  const [formData, setFormData] = React.useState<LeadFormData>({
     name: '',
     email: '',
-    phone: '',
+    phone: ''
   });
-  const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!formData.email) {
-      alert('Por favor, informe seu email');
-      return;
-    }
-    
-    setSubmitting(true);
-    
-    try {
-      // Chamar a edge function para processar o lead
-      const { data, error } = await supabase.functions.invoke('process-lead', {
-        body: {
-          email: formData.email,
-          name: formData.name || null,
-          phone: formData.phone || null,
-          companyCode: companyCode,
-          landingPageId: pageId,
-          source: 'landing-page',
-          customFields: {
-            page_slug: pageSlug,
-            page_title: pageTitle
-          }
-        }
-      });
-      
-      if (error) throw error;
-      
-      setSubmitted(true);
-    } catch (err) {
-      console.error('Erro ao enviar formulário:', err);
-      alert('Ocorreu um erro ao enviar o formulário. Tente novamente.');
-    } finally {
-      setSubmitting(false);
-    }
+    await onSubmit(formData);
   };
 
   return (
-    <div className="py-8 px-4 max-w-md mx-auto">
-      {!submitted ? (
-        <form onSubmit={handleSubmit} className="space-y-4 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-          <h2 className="text-2xl font-bold text-center">
-            {content.title || "Preencha o formulário"}
-          </h2>
-          
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium mb-1">
-              Nome
-            </label>
-            <input
-              type="text"
-              id="name"
-              name="name"
-              value={formData.name}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              placeholder="Seu nome"
-            />
+    <div className="w-full max-w-md mx-auto bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+      {showSuccessMessage ? (
+        <div className="text-center py-8">
+          <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 dark:bg-green-900 mb-4">
+            <Check className="h-6 w-6 text-green-600 dark:text-green-300" />
           </div>
-          
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium mb-1">
-              Email *
-            </label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              placeholder="seu@email.com"
-              required
-            />
-          </div>
-          
-          <div>
-            <label htmlFor="phone" className="block text-sm font-medium mb-1">
-              Telefone
-            </label>
-            <input
-              type="tel"
-              id="phone"
-              name="phone"
-              value={formData.phone}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              placeholder="(00) 00000-0000"
-            />
-          </div>
-          
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full py-3 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition-colors disabled:opacity-70"
-          >
-            {submitting ? "Enviando..." : content.buttonText || "Enviar"}
-          </button>
-        </form>
-      ) : (
-        <div className="bg-green-50 dark:bg-green-900/20 p-6 rounded-lg text-center">
-          <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full mx-auto flex items-center justify-center">
-            <check className="h-8 w-8 text-green-500" />
-          </div>
-          <h3 className="text-xl font-medium text-green-800 dark:text-green-300 mt-4">
-            {content.successTitle || "Obrigado!"}
-          </h3>
-          <p className="text-green-700 dark:text-green-400 mt-2">
-            {content.successMessage || "Suas informações foram enviadas com sucesso."}
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Cadastro realizado com sucesso!</h3>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            Obrigado pelo seu interesse. Entraremos em contato em breve.
           </p>
         </div>
+      ) : (
+        <>
+          <h3 className="text-lg font-medium text-center mb-2">{formTitle}</h3>
+          {formDescription && (
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-6">{formDescription}</p>
+          )}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <Input
+                type="text"
+                name="name"
+                placeholder="Seu nome"
+                value={formData.name}
+                onChange={handleChange}
+                required
+                className="w-full"
+              />
+            </div>
+            <div>
+              <Input
+                type="email"
+                name="email"
+                placeholder="Seu email"
+                value={formData.email}
+                onChange={handleChange}
+                required
+                className="w-full"
+              />
+            </div>
+            <div>
+              <Input
+                type="tel"
+                name="phone"
+                placeholder="Seu telefone"
+                value={formData.phone}
+                onChange={handleChange}
+                className="w-full"
+              />
+            </div>
+            <Button
+              type="submit"
+              className="w-full bg-blue-600 hover:bg-blue-700"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Enviando..." : buttonText}
+            </Button>
+          </form>
+        </>
       )}
     </div>
   );

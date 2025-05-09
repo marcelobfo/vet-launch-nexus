@@ -1,47 +1,28 @@
 
 import React, { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/contexts/AuthContext';
-import { Lead, LeadDB } from '@/types';
-import { Json } from '@supabase/supabase-js';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Plus,
-  Search,
-  UserPlus,
-  Mail,
-  MoreHorizontal,
-  Download,
-  Tag,
-  Send,
-  Trash2,
-  Filter,
-  X,
-} from 'lucide-react';
 
-// Tipo para landing pages
+// Components
+import LeadListHeader from './leads/LeadListHeader';
+import LeadSearch from './leads/LeadSearch';
+import EmptyLeadState from './leads/EmptyLeadState';
+import LeadFilters from './leads/LeadFilters';
+import LeadsList from './leads/LeadsList';
+import LeadStats from './leads/LeadStats';
+import AddLeadDialog from './leads/AddLeadDialog';
+import EmailLeadsDialog from './leads/EmailLeadsDialog';
+import LoadingSpinner from '../landing-page/LoadingSpinner';
+
+// Services
+import { fetchLeadsByCompany, fetchLandingPages, addLead, deleteLeads } from '@/services/leadService';
+
+// Types
+import { Lead, LeadDB } from '@/types';
+
+// Type for landing pages
 type LandingPage = {
   id: string;
   title: string;
@@ -60,25 +41,11 @@ const LeadManager = () => {
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEmailDialog, setShowEmailDialog] = useState(false);
-  
-  const [newLead, setNewLead] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    tags: '',
-    source: 'manual',
-  });
-
-  const [emailData, setEmailData] = useState({
-    subject: '',
-    content: '',
-  });
 
   // Buscar leads e páginas ao iniciar
   useEffect(() => {
     if (company) {
-      fetchLeads();
-      fetchLandingPages();
+      fetchData();
     }
   }, [company]);
 
@@ -87,76 +54,24 @@ const LeadManager = () => {
     applyFilters();
   }, [searchQuery, filterSource, leads]);
 
-  // Buscar leads da empresa
-  const fetchLeads = async () => {
+  const fetchData = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('leads')
-        .select('*')
-        .eq('company_id', company?.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
+      const leadsData = await fetchLeadsByCompany(company!.id);
+      setLeads(leadsData);
+      setFilteredLeads(leadsData);
       
-      // Processar os dados para garantir o formato correto
-      const formattedLeads: Lead[] = (data || []).map(lead => {
-        // Parse custom_fields if needed
-        let customFields: Record<string, any> | null = null;
-        
-        if (lead.custom_fields) {
-          if (typeof lead.custom_fields === 'string') {
-            try {
-              customFields = JSON.parse(lead.custom_fields);
-            } catch (e) {
-              customFields = {};
-            }
-          } else {
-            customFields = lead.custom_fields as Record<string, any>;
-          }
-        }
-        
-        return {
-          id: lead.id,
-          company_id: lead.company_id,
-          email: lead.email,
-          name: lead.name || null,
-          phone: lead.phone || null,
-          source: lead.source || null,
-          landing_page_id: lead.landing_page_id || null,
-          tags: lead.tags || null,
-          custom_fields: customFields,
-          created_at: lead.created_at || new Date().toISOString(),
-          updated_at: lead.updated_at || new Date().toISOString(),
-        };
-      });
-      
-      setLeads(formattedLeads);
-      setFilteredLeads(formattedLeads);
+      const landingPagesData = await fetchLandingPages(company!.id);
+      setLandingPages(landingPagesData);
     } catch (error) {
-      console.error('Erro ao carregar leads:', error);
+      console.error('Error fetching data:', error);
       toast({
         title: 'Erro',
-        description: 'Não foi possível carregar os leads',
+        description: 'Não foi possível carregar os dados',
         variant: 'destructive',
       });
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Buscar landing pages
-  const fetchLandingPages = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('landing_pages')
-        .select('id, title, slug')
-        .eq('company_id', company?.id);
-
-      if (error) throw error;
-      setLandingPages(data || []);
-    } catch (error) {
-      console.error('Erro ao carregar landing pages:', error);
     }
   };
 
@@ -218,39 +133,37 @@ const LeadManager = () => {
   };
 
   // Adicionar novo lead manualmente
-  const handleAddLead = async () => {
+  const handleAddLead = async (newLeadData: {
+    name: string;
+    email: string;
+    phone: string;
+    tags: string;
+    source: string;
+  }) => {
     try {
       if (!company) throw new Error('Empresa não encontrada');
-      if (!newLead.email) throw new Error('Email é obrigatório');
+      if (!newLeadData.email) throw new Error('Email é obrigatório');
       
       // Validação simples de email
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(newLead.email)) {
+      if (!emailRegex.test(newLeadData.email)) {
         throw new Error('Email inválido');
       }
 
-      const tags = newLead.tags ? newLead.tags.split(',').map(tag => tag.trim()) : [];
+      const tags = newLeadData.tags ? newLeadData.tags.split(',').map(tag => tag.trim()) : [];
       
       // Preparar dados formatados para DB
       const leadData: LeadDB = {
         company_id: company.id,
-        email: newLead.email,
-        name: newLead.name || null,
-        phone: newLead.phone || null,
-        source: newLead.source,
+        email: newLeadData.email,
+        name: newLeadData.name || null,
+        phone: newLeadData.phone || null,
+        source: newLeadData.source,
         tags: tags.length > 0 ? tags : null,
-        custom_fields: {} as Json,
+        custom_fields: {},
       };
 
-      const { data, error } = await supabase
-        .from('leads')
-        .upsert({
-          ...leadData,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'company_id,email' })
-        .select();
-
-      if (error) throw error;
+      await addLead(leadData);
       
       toast({
         title: 'Lead adicionado',
@@ -258,14 +171,7 @@ const LeadManager = () => {
       });
       
       setShowAddDialog(false);
-      setNewLead({
-        name: '',
-        email: '',
-        phone: '',
-        tags: '',
-        source: 'manual',
-      });
-      fetchLeads();
+      fetchData();
     } catch (error: any) {
       console.error('Erro ao adicionar lead:', error);
       toast({
@@ -277,7 +183,7 @@ const LeadManager = () => {
   };
 
   // Enviar email para os leads selecionados
-  const handleSendEmail = async () => {
+  const handleSendEmail = async (emailData: { subject: string; content: string }) => {
     try {
       if (selectedLeads.length === 0) throw new Error('Nenhum lead selecionado');
       if (!emailData.subject) throw new Error('Assunto do email é obrigatório');
@@ -290,10 +196,6 @@ const LeadManager = () => {
       });
       
       setShowEmailDialog(false);
-      setEmailData({
-        subject: '',
-        content: '',
-      });
       setSelectedLeads([]);
     } catch (error: any) {
       toast({
@@ -366,12 +268,7 @@ const LeadManager = () => {
     
     if (confirm(`Tem certeza que deseja excluir ${selectedLeads.length} lead(s)?`)) {
       try {
-        const { error } = await supabase
-          .from('leads')
-          .delete()
-          .in('id', selectedLeads);
-          
-        if (error) throw error;
+        await deleteLeads(selectedLeads);
         
         toast({
           title: 'Leads excluídos',
@@ -379,7 +276,7 @@ const LeadManager = () => {
         });
         
         setSelectedLeads([]);
-        fetchLeads();
+        fetchData();
       } catch (error) {
         console.error('Erro ao excluir leads:', error);
         toast({
@@ -402,23 +299,7 @@ const LeadManager = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Gerenciamento de Leads</h2>
-          <p className="text-gray-500 dark:text-gray-400">
-            Gerencie seus contatos e envie campanhas de email
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button 
-            onClick={() => setShowAddDialog(true)}
-            className="bg-vet-primary gap-2"
-          >
-            <UserPlus className="h-4 w-4" />
-            <span>Adicionar Lead</span>
-          </Button>
-        </div>
-      </div>
+      <LeadListHeader onAddLeadClick={() => setShowAddDialog(true)} />
 
       <Tabs defaultValue="list" className="w-full">
         <TabsList className="w-full max-w-md">
@@ -431,205 +312,39 @@ const LeadManager = () => {
             <CardHeader className="pb-3">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <CardTitle>Seus Leads</CardTitle>
-                <div className="relative w-full sm:w-72">
-                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Buscar por nome, email..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-8"
-                  />
-                  {searchQuery && (
-                    <button
-                      className="absolute right-2 top-2.5"
-                      onClick={() => setSearchQuery('')}
-                    >
-                      <X className="h-4 w-4 text-gray-400" />
-                    </button>
-                  )}
-                </div>
+                <LeadSearch searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
               </div>
             </CardHeader>
             <CardContent>
               {loading ? (
                 <div className="flex items-center justify-center p-8">
-                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-vet-primary"></div>
+                  <LoadingSpinner />
                 </div>
               ) : filteredLeads.length === 0 ? (
-                <div className="text-center p-8 border rounded-lg border-dashed">
-                  <h3 className="font-medium text-lg mb-2">Nenhum lead encontrado</h3>
-                  <p className="text-gray-500 dark:text-gray-400 mb-4">
-                    {searchQuery || filterSource 
-                      ? 'Nenhum lead corresponde aos filtros aplicados. Tente outros filtros ou limpe a busca.'
-                      : 'Você ainda não tem leads cadastrados. Comece adicionando um lead ou criando páginas de captura.'}
-                  </p>
-                  {!searchQuery && !filterSource && (
-                    <Button onClick={() => setShowAddDialog(true)}>
-                      Adicionar Lead Manualmente
-                    </Button>
-                  )}
-                </div>
+                <EmptyLeadState 
+                  hasFilters={!!searchQuery || !!filterSource} 
+                  onAddLeadClick={() => setShowAddDialog(true)} 
+                />
               ) : (
                 <>
-                  <div className="flex justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="sm" className="gap-2">
-                            <Filter className="h-4 w-4" />
-                            Filtrar
-                            {filterSource && <Badge variant="outline" className="ml-1">{filterSource}</Badge>}
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                          {getUniqueSources().map((source) => (
-                            <DropdownMenuItem 
-                              key={source}
-                              onClick={() => setFilterSource(source === filterSource ? null : source)}
-                              className="flex items-center justify-between"
-                            >
-                              {source}
-                              {source === filterSource && <span className="ml-2 text-vet-primary">✓</span>}
-                            </DropdownMenuItem>
-                          ))}
-                          {filterSource && (
-                            <DropdownMenuItem 
-                              onClick={() => setFilterSource(null)}
-                              className="border-t mt-1 pt-1"
-                            >
-                              Limpar filtro
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                      
-                      {selectedLeads.length > 0 && (
-                        <span className="text-sm">
-                          {selectedLeads.length} lead(s) selecionado(s)
-                        </span>
-                      )}
-                    </div>
-                    
-                    <div className="flex gap-2">
-                      {selectedLeads.length > 0 && (
-                        <>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => setShowEmailDialog(true)}
-                            className="gap-2"
-                          >
-                            <Mail className="h-4 w-4" />
-                            Enviar Email
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={handleDeleteLeads}
-                            className="gap-2 text-red-500 border-red-200 hover:text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            Excluir
-                          </Button>
-                        </>
-                      )}
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={handleExportLeads}
-                        className="gap-2"
-                      >
-                        <Download className="h-4 w-4" />
-                        Exportar
-                      </Button>
-                    </div>
-                  </div>
+                  <LeadFilters 
+                    filterSource={filterSource}
+                    setFilterSource={setFilterSource}
+                    selectedLeads={selectedLeads}
+                    uniqueSources={getUniqueSources()}
+                    onDeleteLeads={handleDeleteLeads}
+                    onExportLeads={handleExportLeads}
+                    onShowEmailDialog={() => setShowEmailDialog(true)}
+                  />
                   
-                  <div className="rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-[40px]">
-                            <input
-                              type="checkbox"
-                              checked={selectedLeads.length === filteredLeads.length && filteredLeads.length > 0}
-                              onChange={toggleSelectAll}
-                              className="rounded"
-                            />
-                          </TableHead>
-                          <TableHead>Nome / Email</TableHead>
-                          <TableHead>Fonte</TableHead>
-                          <TableHead>Tags</TableHead>
-                          <TableHead>Cadastro</TableHead>
-                          <TableHead className="w-[60px]"></TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredLeads.map((lead) => (
-                          <TableRow key={lead.id}>
-                            <TableCell>
-                              <input
-                                type="checkbox"
-                                checked={selectedLeads.includes(lead.id)}
-                                onChange={() => toggleSelectLead(lead.id)}
-                                className="rounded"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <div>
-                                <div className="font-medium">{lead.name || '-'}</div>
-                                <div className="text-sm text-gray-500">{lead.email}</div>
-                                {lead.phone && (
-                                  <div className="text-xs text-gray-400">{lead.phone}</div>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              {lead.source && (
-                                <Badge variant="outline">
-                                  {lead.landing_page_id 
-                                    ? getLandingPageName(lead.landing_page_id)
-                                    : lead.source}
-                                </Badge>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex flex-wrap gap-1">
-                                {lead.tags && lead.tags.map((tag, index) => (
-                                  <Badge 
-                                    key={index} 
-                                    className="bg-blue-500/10 text-blue-400 border-blue-200"
-                                  >
-                                    {tag}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </TableCell>
-                            <TableCell>{formatDate(lead.created_at)}</TableCell>
-                            <TableCell>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon">
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => {}}>
-                                    <Mail className="h-4 w-4 mr-2" />
-                                    Enviar Email
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => {}}>
-                                    <Tag className="h-4 w-4 mr-2" />
-                                    Adicionar Tags
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
+                  <LeadsList 
+                    filteredLeads={filteredLeads}
+                    selectedLeads={selectedLeads}
+                    toggleSelectLead={toggleSelectLead}
+                    toggleSelectAll={toggleSelectAll}
+                    formatDate={formatDate}
+                    getLandingPageName={getLandingPageName}
+                  />
                 </>
               )}
             </CardContent>
@@ -645,45 +360,9 @@ const LeadManager = () => {
           <Card>
             <CardHeader>
               <CardTitle>Estatísticas de Conversão</CardTitle>
-              <CardDescription>
-                Análise de desempenho das suas páginas de captura de leads
-              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Total de Leads</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold">{leads.length}</div>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Leads este mês</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold">
-                      {leads.filter(lead => {
-                        const today = new Date();
-                        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-                        return new Date(lead.created_at) >= firstDay;
-                      }).length}
-                    </div>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Taxa de Conversão</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold">--</div>
-                  </CardContent>
-                </Card>
-              </div>
+              <LeadStats leads={leads} />
               
               <div className="mt-8">
                 <h3 className="text-lg font-medium mb-4">Desempenho por Fonte</h3>
@@ -696,117 +375,19 @@ const LeadManager = () => {
         </TabsContent>
       </Tabs>
 
-      {/* Modal de adicionar lead */}
-      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Adicionar Novo Lead</DialogTitle>
-            <DialogDescription>
-              Preencha os dados do lead que deseja adicionar manualmente
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="email">Email *</Label>
-              <Input
-                id="email"
-                type="email"
-                value={newLead.email}
-                onChange={(e) => setNewLead({ ...newLead, email: e.target.value })}
-                placeholder="email@exemplo.com"
-                required
-              />
-            </div>
-            
-            <div className="grid gap-2">
-              <Label htmlFor="name">Nome</Label>
-              <Input
-                id="name"
-                value={newLead.name}
-                onChange={(e) => setNewLead({ ...newLead, name: e.target.value })}
-                placeholder="Nome do contato"
-              />
-            </div>
-            
-            <div className="grid gap-2">
-              <Label htmlFor="phone">Telefone</Label>
-              <Input
-                id="phone"
-                value={newLead.phone}
-                onChange={(e) => setNewLead({ ...newLead, phone: e.target.value })}
-                placeholder="(00) 00000-0000"
-              />
-            </div>
-            
-            <div className="grid gap-2">
-              <Label htmlFor="tags">Tags (separadas por vírgula)</Label>
-              <Input
-                id="tags"
-                value={newLead.tags}
-                onChange={(e) => setNewLead({ ...newLead, tags: e.target.value })}
-                placeholder="Ex: cliente, interessado, webinar"
-              />
-            </div>
-          </div>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddDialog(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleAddLead} className="bg-vet-primary">
-              Adicionar Lead
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal de envio de email */}
-      <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Enviar Email para {selectedLeads.length} Lead(s)</DialogTitle>
-            <DialogDescription>
-              Crie o email que será enviado para os leads selecionados
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="subject">Assunto *</Label>
-              <Input
-                id="subject"
-                value={emailData.subject}
-                onChange={(e) => setEmailData({ ...emailData, subject: e.target.value })}
-                placeholder="Assunto do email"
-                required
-              />
-            </div>
-            
-            <div className="grid gap-2">
-              <Label htmlFor="content">Conteúdo *</Label>
-              <Textarea
-                id="content"
-                value={emailData.content}
-                onChange={(e) => setEmailData({ ...emailData, content: e.target.value })}
-                placeholder="Conteúdo do email..."
-                rows={8}
-                required
-              />
-            </div>
-          </div>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEmailDialog(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSendEmail} className="gap-2 bg-vet-primary">
-              <Send className="h-4 w-4" />
-              <span>Enviar Email</span>
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Dialogs */}
+      <AddLeadDialog 
+        open={showAddDialog} 
+        onOpenChange={setShowAddDialog} 
+        onAddLead={handleAddLead} 
+      />
+      
+      <EmailLeadsDialog 
+        open={showEmailDialog}
+        onOpenChange={setShowEmailDialog}
+        selectedLeadsCount={selectedLeads.length}
+        onSendEmail={handleSendEmail}
+      />
     </div>
   );
 };
