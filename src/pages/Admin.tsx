@@ -46,6 +46,33 @@ import WebhookSettings from '@/components/admin/WebhookSettings';
 import LandingPageManager from '@/components/admin/LandingPageManager';
 import LeadManager from '@/components/admin/LeadManager';
 
+// Mock props for components that require them
+const mockWebhookSettings = {
+  companyInfo: {},
+  metrics: {},
+  webhookSettings: {
+    enabled: false,
+    url: '',
+    secret: '',
+    events: []
+  },
+  setWebhookSettings: () => {}
+};
+
+const mockSecuritySettings = {
+  securitySettings: {
+    twoFactorEnabled: false,
+    passwordPolicy: {
+      minLength: 8,
+      requireUppercase: true,
+      requireLowercase: true,
+      requireNumbers: true,
+      requireSpecialChars: true
+    }
+  },
+  setSecuritySettings: () => {}
+};
+
 const Admin = () => {
   const { user, company, signOut } = useAuth();
   const { toast } = useToast();
@@ -194,9 +221,9 @@ const Admin = () => {
                   
                   <TabsContent value="api">
                     <div className="grid gap-6 grid-cols-1">
-                      <WebhookSettings />
+                      <WebhookSettings {...mockWebhookSettings} />
                       <DatabaseConfig />
-                      <SecuritySettings />
+                      <SecuritySettings {...mockSecuritySettings} />
                     </div>
                   </TabsContent>
                 </Tabs>

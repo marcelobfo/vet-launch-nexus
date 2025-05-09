@@ -18,6 +18,10 @@ interface LandingPage {
   };
   company_id: string;
   published: boolean;
+  template_id?: string;
+  webhook_url?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 interface Company {
@@ -89,7 +93,20 @@ const LandingPageView = () => {
         return;
       }
       
-      setPage(pageData);
+      // Garantir que o conteúdo está no formato correto
+      const formattedPage: LandingPage = {
+        ...pageData,
+        content: typeof pageData.content === 'string' 
+          ? JSON.parse(pageData.content) 
+          : pageData.content
+      };
+      
+      // Garantir que content.sections existe
+      if (!formattedPage.content.sections) {
+        formattedPage.content.sections = [];
+      }
+      
+      setPage(formattedPage);
     } catch (err) {
       console.error('Erro ao carregar página:', err);
       setError('Erro ao carregar a página');

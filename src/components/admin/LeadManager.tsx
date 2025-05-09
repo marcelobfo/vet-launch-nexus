@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/contexts/AuthContext';
+import { Lead } from '@/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,20 +39,6 @@ import {
   Filter,
   X,
 } from 'lucide-react';
-
-// Tipo para leads
-type Lead = {
-  id: string;
-  email: string;
-  name: string | null;
-  phone: string | null;
-  source: string | null;
-  landing_page_id: string | null;
-  tags: string[] | null;
-  custom_fields: Record<string, any> | null;
-  created_at: string;
-  updated_at: string;
-};
 
 // Tipo para landing pages
 type LandingPage = {
@@ -110,8 +97,22 @@ const LeadManager = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setLeads(data || []);
-      setFilteredLeads(data || []);
+      
+      // Processar os dados para garantir o formato correto
+      const formattedLeads: Lead[] = (data || []).map(lead => {
+        return {
+          ...lead,
+          custom_fields: lead.custom_fields || null,
+          tags: lead.tags || null,
+          name: lead.name || null,
+          phone: lead.phone || null,
+          source: lead.source || null,
+          landing_page_id: lead.landing_page_id || null
+        };
+      });
+      
+      setLeads(formattedLeads);
+      setFilteredLeads(formattedLeads);
     } catch (error) {
       console.error('Erro ao carregar leads:', error);
       toast({

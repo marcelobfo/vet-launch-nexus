@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/contexts/AuthContext';
+import { LandingPage } from '@/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,19 +40,6 @@ import {
   Code,
   FileJson,
 } from 'lucide-react';
-
-// Tipo para as landing pages
-type LandingPage = {
-  id: string;
-  title: string;
-  slug: string;
-  content: any;
-  template_id?: string;
-  created_at: string;
-  updated_at: string;
-  published: boolean;
-  webhook_url?: string;
-};
 
 // Templates predefinidos
 const TEMPLATES = [
@@ -101,7 +89,26 @@ const LandingPageManager = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setPages(data || []);
+      
+      // Processar os dados para garantir o formato correto
+      const formattedPages: LandingPage[] = (data || []).map(page => {
+        // Garantir que o conteúdo está no formato correto
+        const content = typeof page.content === 'string' 
+          ? JSON.parse(page.content) 
+          : page.content;
+          
+        // Garantir que sections existe
+        if (!content.sections) {
+          content.sections = [];
+        }
+        
+        return {
+          ...page,
+          content
+        };
+      });
+      
+      setPages(formattedPages);
     } catch (error) {
       console.error('Erro ao carregar páginas:', error);
       toast({

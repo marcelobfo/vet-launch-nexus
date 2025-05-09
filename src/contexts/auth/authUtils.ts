@@ -27,6 +27,15 @@ export const getSessionFromLocalStorage = () => {
   }
 };
 
+// Set session to localStorage
+export const setSessionToLocalStorage = (session: any) => {
+  try {
+    localStorage.setItem('session', JSON.stringify(session));
+  } catch (error) {
+    console.error('Error setting session to localStorage:', error);
+  }
+};
+
 // Clear session from localStorage
 export const clearSessionFromLocalStorage = () => {
   try {
