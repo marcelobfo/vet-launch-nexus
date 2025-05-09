@@ -1,32 +1,30 @@
 
 import React from 'react';
 import LeadForm from './LeadForm';
-import { LandingPage } from '@/types';
 
 interface DefaultFormProps {
-  page: LandingPage;
+  pageId: string;
   companyCode: string;
+  pageTitle: string;
+  pageSlug: string;
 }
 
-const DefaultForm: React.FC<DefaultFormProps> = ({ page, companyCode }) => {
-  // Default form with standard header when no content is defined
+const DefaultForm: React.FC<DefaultFormProps> = ({ 
+  pageId, 
+  companyCode, 
+  pageTitle, 
+  pageSlug 
+}) => {
   return (
-    <>
-      <header className="text-center py-12 px-4">
-        <h1 className="text-4xl font-bold mb-4">{page.title}</h1>
-        <p className="text-xl text-gray-600 dark:text-gray-300">
-          Bem-vindo à nossa página
-        </p>
-      </header>
-      
-      <LeadForm 
-        content={{}}
-        pageId={page.id}
+    <div className="max-w-md mx-auto">
+      <LeadForm
+        pageId={pageId}
         companyCode={companyCode}
-        pageTitle={page.title}
-        pageSlug={page.slug}
+        pageTitle={pageTitle}
+        pageSlug={pageSlug}
+        formContent={{}}
       />
-    </>
+    </div>
   );
 };
 

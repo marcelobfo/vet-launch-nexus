@@ -1,104 +1,132 @@
 
-import React from 'react';
-import { LeadFormData } from '@/types';
+import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Check } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 
-interface LeadFormProps {
-  onSubmit: (data: LeadFormData) => Promise<void>;
-  formTitle?: string;
-  formDescription?: string;
-  buttonText?: string;
-  showSuccessMessage?: boolean;
-  isSubmitting?: boolean;
+export interface LeadFormProps {
+  pageId: string;
+  companyCode: string;
+  pageTitle: string;
+  pageSlug: string;
+  formContent?: Record<string, any>;
 }
 
 const LeadForm: React.FC<LeadFormProps> = ({
-  onSubmit,
-  formTitle = "Cadastre-se para saber mais",
-  formDescription = "Preencha o formulário abaixo e entraremos em contato",
-  buttonText = "Enviar",
-  showSuccessMessage = false,
-  isSubmitting = false
+  pageId,
+  companyCode,
+  pageTitle,
+  pageSlug,
+  formContent
 }) => {
-  const [formData, setFormData] = React.useState<LeadFormData>({
-    name: '',
-    email: '',
-    phone: ''
-  });
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await onSubmit(formData);
+    
+    if (!email.trim()) {
+      setError('Por favor, informe seu email');
+      return;
+    }
+    
+    if (!privacyAccepted) {
+      setError('Por favor, aceite os termos de privacidade');
+      return;
+    }
+    
+    setError('');
+    setSubmitting(true);
+
+    try {
+      // Mock submission logic 
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setSuccess(true);
+    } catch (err) {
+      console.error('Error submitting form:', err);
+      setError('Ocorreu um erro ao enviar o formulário. Tente novamente mais tarde.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
+  if (success) {
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-lg">
+        <h3 className="text-xl font-medium text-center mb-4">Obrigado!</h3>
+        <p className="text-center mb-4">
+          Seu cadastro foi realizado com sucesso. Em breve entraremos em contato.
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <div className="w-full max-w-md mx-auto bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-      {showSuccessMessage ? (
-        <div className="text-center py-8">
-          <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 dark:bg-green-900 mb-4">
-            <Check className="h-6 w-6 text-green-600 dark:text-green-300" />
-          </div>
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Cadastro realizado com sucesso!</h3>
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            Obrigado pelo seu interesse. Entraremos em contato em breve.
-          </p>
+    <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-lg">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <Label htmlFor="name">Nome</Label>
+          <Input
+            id="name"
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Seu nome"
+          />
         </div>
-      ) : (
-        <>
-          <h3 className="text-lg font-medium text-center mb-2">{formTitle}</h3>
-          {formDescription && (
-            <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-6">{formDescription}</p>
-          )}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <Input
-                type="text"
-                name="name"
-                placeholder="Seu nome"
-                value={formData.name}
-                onChange={handleChange}
-                required
-                className="w-full"
-              />
-            </div>
-            <div>
-              <Input
-                type="email"
-                name="email"
-                placeholder="Seu email"
-                value={formData.email}
-                onChange={handleChange}
-                required
-                className="w-full"
-              />
-            </div>
-            <div>
-              <Input
-                type="tel"
-                name="phone"
-                placeholder="Seu telefone"
-                value={formData.phone}
-                onChange={handleChange}
-                className="w-full"
-              />
-            </div>
-            <Button
-              type="submit"
-              className="w-full bg-blue-600 hover:bg-blue-700"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? "Enviando..." : buttonText}
-            </Button>
-          </form>
-        </>
-      )}
+        
+        <div>
+          <Label htmlFor="email">Email*</Label>
+          <Input
+            id="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Seu email"
+            required
+          />
+        </div>
+        
+        <div>
+          <Label htmlFor="phone">Telefone / WhatsApp</Label>
+          <Input
+            id="phone"
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="(00) 00000-0000"
+          />
+        </div>
+        
+        <div className="flex items-center space-x-2">
+          <Checkbox 
+            id="privacy" 
+            checked={privacyAccepted} 
+            onCheckedChange={(checked) => setPrivacyAccepted(Boolean(checked))} 
+          />
+          <Label htmlFor="privacy" className="text-sm">
+            Concordo com a política de privacidade e termos de uso
+          </Label>
+        </div>
+        
+        {error && (
+          <div className="text-red-500 text-sm">{error}</div>
+        )}
+        
+        <Button 
+          type="submit" 
+          className="w-full bg-green-600 hover:bg-green-700"
+          disabled={submitting}
+        >
+          {submitting ? 'Enviando...' : 'Cadastrar'}
+        </Button>
+      </form>
     </div>
   );
 };
