@@ -1,4 +1,7 @@
 
+// Import Json type from supabase
+import type { Json } from '@supabase/supabase-js';
+
 // Tipos para landing pages
 export interface LandingPageSection {
   type: string;
@@ -20,6 +23,20 @@ export interface LandingPage {
   updated_at: string;
 }
 
+// Specific type for database operations with landing pages
+export interface LandingPageDB {
+  id?: string;
+  title: string;
+  slug: string;
+  content: Json;
+  company_id: string;
+  published?: boolean;
+  template_id?: string;
+  webhook_url?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
 // Tipo para leads
 export interface Lead {
   id: string;
@@ -33,6 +50,21 @@ export interface Lead {
   custom_fields: Record<string, any> | null;
   created_at: string;
   updated_at: string;
+}
+
+// Specific type for database operations with leads
+export interface LeadDB {
+  id?: string;
+  company_id: string;
+  email: string;
+  name?: string | null;
+  phone?: string | null;
+  source?: string | null;
+  landing_page_id?: string | null;
+  tags?: string[] | null;
+  custom_fields?: Json | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
 // Tipo para campanhas
@@ -60,4 +92,34 @@ export interface CampaignLead {
   clicked_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+// Props for admin components
+export interface WebhookSettingsProps {
+  webhookSettings: {
+    url: string;
+    autoSend: boolean;
+    frequency: "daily" | "weekly" | "monthly";
+    registrationWebhookUrl: string;
+    whatsappWebhookUrl: string;
+    smtpSettings: {
+      host: string;
+      port: number;
+      user: string;
+      password: string;
+      fromEmail: string;
+      fromName: string;
+    };
+  };
+  companyInfo: Record<string, any>;
+  metrics: Record<string, any>;
+  setWebhookSettings: (settings: any) => void;
+}
+
+export interface SecuritySettingsProps {
+  securitySettings: {
+    passwordProtection: boolean;
+    adminPassword: string;
+  };
+  setSecuritySettings: (settings: any) => void;
 }

@@ -3,7 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/contexts/AuthContext';
-import { Lead } from '@/types';
+import { Lead, LeadDB } from '@/types';
+import { Json } from '@supabase/supabase-js';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -100,14 +101,33 @@ const LeadManager = () => {
       
       // Processar os dados para garantir o formato correto
       const formattedLeads: Lead[] = (data || []).map(lead => {
+        // Parse custom_fields if needed
+        let customFields: Record<string, any> | null = null;
+        
+        if (lead.custom_fields) {
+          if (typeof lead.custom_fields === 'string') {
+            try {
+              customFields = JSON.parse(lead.custom_fields);
+            } catch (e) {
+              customFields = {};
+            }
+          } else {
+            customFields = lead.custom_fields as Record<string, any>;
+          }
+        }
+        
         return {
-          ...lead,
-          custom_fields: lead.custom_fields || null,
-          tags: lead.tags || null,
+          id: lead.id,
+          company_id: lead.company_id,
+          email: lead.email,
           name: lead.name || null,
           phone: lead.phone || null,
           source: lead.source || null,
-          landing_page_id: lead.landing_page_id || null
+          landing_page_id: lead.landing_page_id || null,
+          tags: lead.tags || null,
+          custom_fields: customFields,
+          created_at: lead.created_at || new Date().toISOString(),
+          updated_at: lead.updated_at || new Date().toISOString(),
         };
       });
       
@@ -211,15 +231,21 @@ const LeadManager = () => {
 
       const tags = newLead.tags ? newLead.tags.split(',').map(tag => tag.trim()) : [];
       
+      // Preparar dados formatados para DB
+      const leadData: LeadDB = {
+        company_id: company.id,
+        email: newLead.email,
+        name: newLead.name || null,
+        phone: newLead.phone || null,
+        source: newLead.source,
+        tags: tags.length > 0 ? tags : null,
+        custom_fields: {} as Json,
+      };
+
       const { data, error } = await supabase
         .from('leads')
         .upsert({
-          company_id: company.id,
-          email: newLead.email,
-          name: newLead.name || null,
-          phone: newLead.phone || null,
-          source: newLead.source,
-          tags: tags.length > 0 ? tags : null,
+          ...leadData,
           updated_at: new Date().toISOString(),
         }, { onConflict: 'company_id,email' })
         .select();

@@ -1,28 +1,8 @@
-
 import React, { useEffect, useState } from 'react';
 import { useParams, Navigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-
-// Tipos para a landing page
-interface LandingPageSection {
-  type: string;
-  content: Record<string, any>;
-}
-
-interface LandingPage {
-  id: string;
-  title: string;
-  slug: string;
-  content: {
-    sections: LandingPageSection[];
-  };
-  company_id: string;
-  published: boolean;
-  template_id?: string;
-  webhook_url?: string;
-  created_at: string;
-  updated_at: string;
-}
+import { LandingPage, LandingPageSection } from '@/types';
+import { Json } from '@supabase/supabase-js';
 
 interface Company {
   id: string;
@@ -93,18 +73,40 @@ const LandingPageView = () => {
         return;
       }
       
-      // Garantir que o conteúdo está no formato correto
-      const formattedPage: LandingPage = {
-        ...pageData,
-        content: typeof pageData.content === 'string' 
-          ? JSON.parse(pageData.content) 
-          : pageData.content
-      };
+      // Processar o conteúdo
+      let parsedContent: { sections: LandingPageSection[] };
       
-      // Garantir que content.sections existe
-      if (!formattedPage.content.sections) {
-        formattedPage.content.sections = [];
+      if (typeof pageData.content === 'string') {
+        try {
+          parsedContent = JSON.parse(pageData.content);
+        } catch (e) {
+          parsedContent = { sections: [] };
+        }
+      } else {
+        const contentObj = pageData.content as any;
+        
+        // Verificar se já tem a estrutura correta
+        if (contentObj.sections && Array.isArray(contentObj.sections)) {
+          parsedContent = { sections: contentObj.sections };
+        } else {
+          // Criar estrutura vazia
+          parsedContent = { sections: [] };
+        }
       }
+      
+      // Criar um objeto formatado para o tipo LandingPage
+      const formattedPage: LandingPage = {
+        id: pageData.id,
+        title: pageData.title,
+        slug: pageData.slug,
+        company_id: pageData.company_id,
+        published: pageData.published,
+        template_id: pageData.template_id || null,
+        webhook_url: pageData.webhook_url || null,
+        created_at: pageData.created_at || new Date().toISOString(),
+        updated_at: pageData.updated_at || new Date().toISOString(),
+        content: parsedContent
+      };
       
       setPage(formattedPage);
     } catch (err) {

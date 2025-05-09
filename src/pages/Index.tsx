@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavBar } from '@/components/NavBar';
 import Hero from '@/components/Hero';
 import LaunchStrategy from '@/components/LaunchStrategy';
@@ -9,14 +9,21 @@ import Costs from '@/components/Costs';
 import FinalCta from '@/components/FinalCta';
 import Footer from '@/components/Footer';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/components/ThemeProvider';
 
-interface IndexProps {
+export interface IndexProps {
   isDarkTheme: boolean;
   setIsDarkTheme: (isDarkTheme: boolean) => void;
 }
 
-const Index = ({ isDarkTheme, setIsDarkTheme }: IndexProps) => {
+const Index = () => {
   const { user, company } = useAuth();
+  const { theme, setTheme } = useTheme();
+  
+  const isDarkTheme = theme === 'dark';
+  const setIsDarkTheme = (isDark: boolean) => {
+    setTheme(isDark ? 'dark' : 'light');
+  };
   
   useEffect(() => {
     // Load title from localStorage if available

@@ -3,7 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/contexts/AuthContext';
-import { LandingPage } from '@/types';
+import { LandingPage, LandingPageDB, LandingPageSection } from '@/types';
+import { Json } from '@supabase/supabase-js';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -93,18 +94,36 @@ const LandingPageManager = () => {
       // Processar os dados para garantir o formato correto
       const formattedPages: LandingPage[] = (data || []).map(page => {
         // Garantir que o conteúdo está no formato correto
-        const content = typeof page.content === 'string' 
-          ? JSON.parse(page.content) 
-          : page.content;
+        let parsedContent;
+        
+        if (typeof page.content === 'string') {
+          try {
+            parsedContent = JSON.parse(page.content);
+          } catch (e) {
+            parsedContent = { sections: [] };
+          }
+        } else {
+          parsedContent = page.content || { sections: [] };
+        }
           
         // Garantir que sections existe
-        if (!content.sections) {
-          content.sections = [];
+        if (!parsedContent.sections) {
+          parsedContent.sections = [];
         }
         
         return {
-          ...page,
-          content
+          id: page.id,
+          title: page.title,
+          slug: page.slug,
+          company_id: page.company_id,
+          content: {
+            sections: parsedContent.sections || []
+          },
+          published: page.published || false,
+          template_id: page.template_id || null,
+          webhook_url: page.webhook_url || null,
+          created_at: page.created_at || new Date().toISOString(),
+          updated_at: page.updated_at || new Date().toISOString(),
         };
       });
       
@@ -186,20 +205,22 @@ const LandingPageManager = () => {
     try {
       if (!company) throw new Error('Empresa não encontrada');
       
-      const pageData = {
+      // Preparar o objeto com as seções padrão ou existentes
+      const sections: LandingPageSection[] = currentPage?.content?.sections || [
+        { type: 'header', content: { title: formData.title, subtitle: 'Subtítulo da página' } },
+        { type: 'text', content: { text: 'Conteúdo da página aqui...' } },
+        { type: 'cta', content: { buttonText: 'Clique Aqui', buttonLink: '#' } }
+      ];
+      
+      // Converter para o formato aceito pelo banco
+      const pageData: LandingPageDB = {
         title: formData.title,
         slug: formData.slug,
         company_id: company.id,
         template_id: formData.templateId,
         webhook_url: formData.webhook_url || null,
         published: formData.published,
-        content: currentPage?.content || {
-          sections: [
-            { type: 'header', content: { title: formData.title, subtitle: 'Subtítulo da página' } },
-            { type: 'text', content: { text: 'Conteúdo da página aqui...' } },
-            { type: 'cta', content: { buttonText: 'Clique Aqui', buttonLink: '#' } }
-          ]
-        }
+        content: { sections } as unknown as Json
       };
 
       if (editMode && currentPage) {
@@ -223,9 +244,7 @@ const LandingPageManager = () => {
         // Criar nova página
         const { data, error } = await supabase
           .from('landing_pages')
-          .insert({
-            ...pageData
-          })
+          .insert(pageData)
           .select();
 
         if (error) throw error;

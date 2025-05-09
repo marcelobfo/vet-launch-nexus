@@ -11,6 +11,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { WebhookSettingsProps, SecuritySettingsProps } from '@/types';
 
 import {
   Tabs,
@@ -47,28 +48,31 @@ import LandingPageManager from '@/components/admin/LandingPageManager';
 import LeadManager from '@/components/admin/LeadManager';
 
 // Mock props for components that require them
-const mockWebhookSettings = {
+const mockWebhookSettings: WebhookSettingsProps = {
   companyInfo: {},
   metrics: {},
   webhookSettings: {
-    enabled: false,
     url: '',
-    secret: '',
-    events: []
+    autoSend: false,
+    frequency: "daily",
+    registrationWebhookUrl: '',
+    whatsappWebhookUrl: '',
+    smtpSettings: {
+      host: '',
+      port: 587,
+      user: '',
+      password: '',
+      fromEmail: '',
+      fromName: ''
+    }
   },
   setWebhookSettings: () => {}
 };
 
-const mockSecuritySettings = {
+const mockSecuritySettings: SecuritySettingsProps = {
   securitySettings: {
-    twoFactorEnabled: false,
-    passwordPolicy: {
-      minLength: 8,
-      requireUppercase: true,
-      requireLowercase: true,
-      requireNumbers: true,
-      requireSpecialChars: true
-    }
+    passwordProtection: false,
+    adminPassword: ''
   },
   setSecuritySettings: () => {}
 };
