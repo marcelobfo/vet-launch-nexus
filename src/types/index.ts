@@ -1,6 +1,12 @@
-
-// Import Json type from supabase
-import type { Json } from '@supabase/supabase-js';
+// Import Json type - no need to import from supabase anymore since we define it below
+// Define Json type locally to fix import issues
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json }
+  | Json[];
 
 // Tipos para landing pages
 export interface LandingPageSection {
@@ -28,7 +34,7 @@ export interface LandingPageDB {
   id?: string;
   title: string;
   slug: string;
-  content: Json;
+  content: any; // Change to any to avoid Json type issues
   company_id: string;
   published?: boolean;
   template_id?: string;
@@ -62,7 +68,7 @@ export interface LeadDB {
   source?: string | null;
   landing_page_id?: string | null;
   tags?: string[] | null;
-  custom_fields?: Json | null;
+  custom_fields?: any | null; // Change to any to avoid Json type issues
   created_at?: string;
   updated_at?: string;
 }

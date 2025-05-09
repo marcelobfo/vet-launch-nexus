@@ -1,55 +1,25 @@
 
 import React, { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/contexts/AuthContext';
 import { LandingPage, LandingPageDB, LandingPageSection } from '@/types';
-import { Json } from '@supabase/supabase-js';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Plus,
-  Edit,
-  Copy,
-  Trash2,
-  Eye,
-  MoreHorizontal,
-  Sparkles,
-  Globe,
-  Code,
-  FileJson,
-} from 'lucide-react';
+import { Plus, Sparkles } from 'lucide-react';
 
-// Templates predefinidos
-const TEMPLATES = [
-  { id: 'basic', name: 'Página Básica', description: 'Template simples com cabeçalho, conteúdo e rodapé' },
-  { id: 'lead-capture', name: 'Captura de Leads', description: 'Template com formulário para captura de contatos' },
-  { id: 'sales-page', name: 'Página de Vendas', description: 'Template completo para páginas de vendas' },
-  { id: 'webinar', name: 'Webinar', description: 'Template para inscrição em webinar/evento' },
-  { id: 'thank-you', name: 'Página de Agradecimento', description: 'Template para página de agradecimento pós-conversão' },
-];
+// Import our new components
+import PageList from './landing-pages/PageList';
+import CreatePageDialog from './landing-pages/CreatePageDialog';
+import AiGenerationDialog from './landing-pages/AiGenerationDialog';
+import { LandingPageFormData } from '@/types/landingPageTypes';
+import { 
+  fetchLandingPages, 
+  saveLandingPage, 
+  deleteLandingPage, 
+  duplicateLandingPage,
+  togglePagePublishStatus,
+  generateSlug
+} from '@/services/landingPageService';
 
 const LandingPageManager = () => {
   const { user, company } = useAuth();
@@ -61,7 +31,7 @@ const LandingPageManager = () => {
   const [editMode, setEditMode] = useState(false);
   const [currentPage, setCurrentPage] = useState<LandingPage | null>(null);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<LandingPageFormData>({
     title: '',
     slug: '',
     templateId: 'basic',
@@ -72,64 +42,23 @@ const LandingPageManager = () => {
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
 
-  // Carregar páginas ao iniciar o componente
+  // Load pages when the component mounts
   useEffect(() => {
     if (company) {
-      fetchPages();
+      loadPages();
     }
   }, [company]);
 
-  // Buscar landing pages da empresa
-  const fetchPages = async () => {
+  // Load landing pages
+  const loadPages = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('landing_pages')
-        .select('*')
-        .eq('company_id', company?.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
+      if (!company) throw new Error('Company not found');
       
-      // Processar os dados para garantir o formato correto
-      const formattedPages: LandingPage[] = (data || []).map(page => {
-        // Garantir que o conteúdo está no formato correto
-        let parsedContent;
-        
-        if (typeof page.content === 'string') {
-          try {
-            parsedContent = JSON.parse(page.content);
-          } catch (e) {
-            parsedContent = { sections: [] };
-          }
-        } else {
-          parsedContent = page.content || { sections: [] };
-        }
-          
-        // Garantir que sections existe
-        if (!parsedContent.sections) {
-          parsedContent.sections = [];
-        }
-        
-        return {
-          id: page.id,
-          title: page.title,
-          slug: page.slug,
-          company_id: page.company_id,
-          content: {
-            sections: parsedContent.sections || []
-          },
-          published: page.published || false,
-          template_id: page.template_id || null,
-          webhook_url: page.webhook_url || null,
-          created_at: page.created_at || new Date().toISOString(),
-          updated_at: page.updated_at || new Date().toISOString(),
-        };
-      });
-      
-      setPages(formattedPages);
+      const loadedPages = await fetchLandingPages(company.id);
+      setPages(loadedPages);
     } catch (error) {
-      console.error('Erro ao carregar páginas:', error);
+      console.error('Error loading pages:', error);
       toast({
         title: 'Erro',
         description: 'Não foi possível carregar as páginas',
@@ -140,17 +69,7 @@ const LandingPageManager = () => {
     }
   };
 
-  // Gerar slug a partir do título
-  const generateSlug = (title: string) => {
-    return title
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^\w\s-]/g, '')
-      .replace(/\s+/g, '-');
-  };
-
-  // Abrir modal para criar nova página
+  // Open modal for creating new page
   const handleCreateNew = () => {
     setFormData({
       title: '',
@@ -164,7 +83,7 @@ const LandingPageManager = () => {
     setCreateDialogOpen(true);
   };
 
-  // Abrir modal para editar página existente
+  // Open modal for editing existing page
   const handleEdit = (page: LandingPage) => {
     setFormData({
       title: page.title,
@@ -178,7 +97,7 @@ const LandingPageManager = () => {
     setCreateDialogOpen(true);
   };
 
-  // Atualizar título e gerar slug automaticamente
+  // Update title and automatically generate slug
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const title = e.target.value;
     setFormData({
@@ -188,7 +107,7 @@ const LandingPageManager = () => {
     });
   };
 
-  // Abrir modal de IA
+  // Open AI modal
   const handleOpenAiModal = (page?: LandingPage) => {
     if (page) {
       setCurrentPage(page);
@@ -200,19 +119,19 @@ const LandingPageManager = () => {
     setAiDialogOpen(true);
   };
 
-  // Criar/editar landing page
+  // Create/edit landing page
   const handleSavePage = async () => {
     try {
       if (!company) throw new Error('Empresa não encontrada');
       
-      // Preparar o objeto com as seções padrão ou existentes
+      // Prepare the object with default or existing sections
       const sections: LandingPageSection[] = currentPage?.content?.sections || [
         { type: 'header', content: { title: formData.title, subtitle: 'Subtítulo da página' } },
         { type: 'text', content: { text: 'Conteúdo da página aqui...' } },
         { type: 'cta', content: { buttonText: 'Clique Aqui', buttonLink: '#' } }
       ];
       
-      // Converter para o formato aceito pelo banco
+      // Convert to the format accepted by the database
       const pageData: LandingPageDB = {
         title: formData.title,
         slug: formData.slug,
@@ -220,34 +139,18 @@ const LandingPageManager = () => {
         template_id: formData.templateId,
         webhook_url: formData.webhook_url || null,
         published: formData.published,
-        content: { sections } as unknown as Json
+        content: JSON.stringify({ sections })
       };
 
       if (editMode && currentPage) {
-        // Atualizar página existente
-        const { data, error } = await supabase
-          .from('landing_pages')
-          .update({
-            ...pageData,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', currentPage.id)
-          .select();
-
-        if (error) throw error;
+        await saveLandingPage(pageData, currentPage.id);
         
         toast({
           title: 'Página atualizada',
           description: 'A landing page foi atualizada com sucesso',
         });
       } else {
-        // Criar nova página
-        const { data, error } = await supabase
-          .from('landing_pages')
-          .insert(pageData)
-          .select();
-
-        if (error) throw error;
+        await saveLandingPage(pageData);
         
         toast({
           title: 'Página criada',
@@ -255,11 +158,11 @@ const LandingPageManager = () => {
         });
       }
 
-      // Fechar modal e recarregar páginas
+      // Close modal and reload pages
       setCreateDialogOpen(false);
-      fetchPages();
+      loadPages();
     } catch (error: any) {
-      console.error('Erro ao salvar página:', error);
+      console.error('Error saving page:', error);
       toast({
         title: 'Erro',
         description: error.message || 'Não foi possível salvar a página',
@@ -268,12 +171,12 @@ const LandingPageManager = () => {
     }
   };
 
-  // Gerar conteúdo com IA
+  // Generate content with AI
   const handleGenerateWithAi = async () => {
     setAiLoading(true);
     try {
-      // Este é um mock da funcionalidade de IA
-      // Em uma implementação real, você faria uma chamada para uma API de IA
+      // This is a mock of the AI functionality
+      // In a real implementation, you would make a call to an AI API
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       toast({
@@ -283,7 +186,7 @@ const LandingPageManager = () => {
       
       setAiDialogOpen(false);
       
-      // Se não estiver em edição, abre o modal de criação com dados da IA
+      // If not in edit mode, open the creation modal with AI data
       if (!currentPage) {
         setFormData({
           title: 'Página gerada com IA',
@@ -295,7 +198,7 @@ const LandingPageManager = () => {
         setCreateDialogOpen(true);
       }
     } catch (error) {
-      console.error('Erro ao gerar com IA:', error);
+      console.error('Error generating with AI:', error);
       toast({
         title: 'Erro',
         description: 'Não foi possível gerar o conteúdo com IA',
@@ -306,25 +209,20 @@ const LandingPageManager = () => {
     }
   };
 
-  // Excluir página
+  // Delete page
   const handleDelete = async (pageId: string) => {
     if (confirm('Tem certeza que deseja excluir esta página?')) {
       try {
-        const { error } = await supabase
-          .from('landing_pages')
-          .delete()
-          .eq('id', pageId);
-          
-        if (error) throw error;
+        await deleteLandingPage(pageId);
         
         toast({
           title: 'Página excluída',
           description: 'A landing page foi excluída com sucesso',
         });
         
-        fetchPages();
+        loadPages();
       } catch (error) {
-        console.error('Erro ao excluir página:', error);
+        console.error('Error deleting page:', error);
         toast({
           title: 'Erro',
           description: 'Não foi possível excluir a página',
@@ -334,35 +232,22 @@ const LandingPageManager = () => {
     }
   };
 
-  // Duplicar página
+  // Duplicate page
   const handleDuplicate = async (page: LandingPage) => {
     try {
       const newTitle = `${page.title} (cópia)`;
       const newSlug = `${page.slug}-copia`;
       
-      const { data, error } = await supabase
-        .from('landing_pages')
-        .insert({
-          title: newTitle,
-          slug: newSlug,
-          company_id: page.company_id,
-          template_id: page.template_id,
-          content: page.content,
-          published: false,
-          webhook_url: page.webhook_url,
-        })
-        .select();
-        
-      if (error) throw error;
+      await duplicateLandingPage(page, newTitle, newSlug);
       
       toast({
         title: 'Página duplicada',
         description: 'A landing page foi duplicada com sucesso',
       });
       
-      fetchPages();
+      loadPages();
     } catch (error) {
-      console.error('Erro ao duplicar página:', error);
+      console.error('Error duplicating page:', error);
       toast({
         title: 'Erro',
         description: 'Não foi possível duplicar a página',
@@ -371,28 +256,19 @@ const LandingPageManager = () => {
     }
   };
 
-  // Toggle de publicação
+  // Toggle publication status
   const handleTogglePublish = async (page: LandingPage) => {
     try {
-      const { data, error } = await supabase
-        .from('landing_pages')
-        .update({
-          published: !page.published,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', page.id)
-        .select();
-        
-      if (error) throw error;
+      await togglePagePublishStatus(page);
       
       toast({
         title: page.published ? 'Página despublicada' : 'Página publicada',
         description: `A landing page foi ${page.published ? 'despublicada' : 'publicada'} com sucesso`,
       });
       
-      fetchPages();
+      loadPages();
     } catch (error) {
-      console.error('Erro ao alterar status de publicação:', error);
+      console.error('Error changing publication status:', error);
       toast({
         title: 'Erro',
         description: 'Não foi possível alterar o status da página',
@@ -401,7 +277,7 @@ const LandingPageManager = () => {
     }
   };
 
-  // Formatar data
+  // Format date
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return new Intl.DateTimeFormat('pt-BR', {
@@ -440,91 +316,16 @@ const LandingPageManager = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {loading ? (
-            <div className="flex items-center justify-center p-8">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-vet-primary"></div>
-            </div>
-          ) : pages.length === 0 ? (
-            <div className="text-center p-8 border rounded-lg border-dashed">
-              <h3 className="font-medium text-lg mb-2">Sem landing pages</h3>
-              <p className="text-gray-500 dark:text-gray-400 mb-4">
-                Comece criando sua primeira página de lançamento ou captura de leads
-              </p>
-              <div className="flex gap-4 justify-center">
-                <Button onClick={handleCreateNew} variant="outline" className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  <span>Criar do Zero</span>
-                </Button>
-                <Button onClick={() => handleOpenAiModal()} className="gap-2">
-                  <Sparkles className="h-4 w-4" />
-                  <span>Gerar com IA</span>
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Título</TableHead>
-                    <TableHead>Slug</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Atualizada em</TableHead>
-                    <TableHead className="w-[100px]">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pages.map((page) => (
-                    <TableRow key={page.id}>
-                      <TableCell className="font-medium">{page.title}</TableCell>
-                      <TableCell className="text-sm text-gray-500">{page.slug}</TableCell>
-                      <TableCell>
-                        {page.published ? (
-                          <Badge className="bg-green-500/20 text-green-400 border-green-800">
-                            Publicada
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline">Rascunho</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>{formatDate(page.updated_at)}</TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleEdit(page)}>
-                              <Edit className="h-4 w-4 mr-2" />
-                              Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleTogglePublish(page)}>
-                              <Eye className="h-4 w-4 mr-2" />
-                              {page.published ? 'Despublicar' : 'Publicar'}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDuplicate(page)}>
-                              <Copy className="h-4 w-4 mr-2" />
-                              Duplicar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleOpenAiModal(page)}>
-                              <Sparkles className="h-4 w-4 mr-2" />
-                              Melhorar com IA
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDelete(page.id)} className="text-red-500">
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Excluir
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+          <PageList
+            pages={pages}
+            loading={loading}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onDuplicate={handleDuplicate}
+            onTogglePublish={handleTogglePublish}
+            onOpenAiModal={handleOpenAiModal}
+            formatDate={formatDate}
+          />
         </CardContent>
         <CardFooter className="flex justify-between">
           <div className="text-sm text-gray-500">
@@ -533,148 +334,25 @@ const LandingPageManager = () => {
         </CardFooter>
       </Card>
 
-      {/* Modal de criação/edição de página */}
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{editMode ? 'Editar Landing Page' : 'Criar Nova Landing Page'}</DialogTitle>
-            <DialogDescription>
-              {editMode
-                ? 'Edite as informações da sua landing page'
-                : 'Preencha os dados abaixo para criar uma nova landing page'}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="title">Título da Página</Label>
-              <Input
-                id="title"
-                value={formData.title}
-                onChange={handleTitleChange}
-                placeholder="Ex: Inscrição para Webinar"
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="slug">Slug da URL</Label>
-              <Input
-                id="slug"
-                value={formData.slug}
-                onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                placeholder="Ex: inscricao-webinar"
-              />
-              <p className="text-xs text-gray-500">
-                URL: seudominio.com/p/<span className="font-mono">{formData.slug}</span>
-              </p>
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="template">Template</Label>
-              <Select
-                value={formData.templateId}
-                onValueChange={(value) => setFormData({ ...formData, templateId: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione um template" />
-                </SelectTrigger>
-                <SelectContent>
-                  {TEMPLATES.map((template) => (
-                    <SelectItem key={template.id} value={template.id}>
-                      {template.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="webhook">Webhook para Captura de Leads (opcional)</Label>
-              <Input
-                id="webhook"
-                value={formData.webhook_url}
-                onChange={(e) => setFormData({ ...formData, webhook_url: e.target.value })}
-                placeholder="https://seu-webhook.com/endpoint"
-              />
-              <p className="text-xs text-gray-500">
-                Se não for informado, o webhook da empresa será usado
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Switch
-                id="published"
-                checked={formData.published}
-                onCheckedChange={(checked) => setFormData({ ...formData, published: checked })}
-              />
-              <Label htmlFor="published">Publicar página imediatamente</Label>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSavePage} className="bg-vet-primary">
-              {editMode ? 'Salvar Alterações' : 'Criar Página'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal de IA */}
-      <Dialog open={aiDialogOpen} onOpenChange={setAiDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Criar com IA</DialogTitle>
-            <DialogDescription>
-              Descreva a landing page que você deseja criar e a IA irá gerá-la para você
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="ai-prompt">Prompt para a IA</Label>
-              <Textarea
-                id="ai-prompt"
-                value={aiPrompt}
-                onChange={(e) => setAiPrompt(e.target.value)}
-                placeholder="Ex: Crie uma landing page para captura de leads de um curso de marketing digital"
-                rows={6}
-              />
-            </div>
-            
-            <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded text-sm">
-              <p className="font-medium mb-2">Dicas para melhores resultados:</p>
-              <ul className="list-disc pl-5 space-y-1">
-                <li>Seja específico sobre o propósito da página (venda, captura de leads, etc)</li>
-                <li>Mencione o tom de comunicação (formal, casual, persuasivo)</li>
-                <li>Descreva o público-alvo da página</li>
-                <li>Informe detalhes do produto/serviço (benefícios, diferenciais)</li>
-              </ul>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAiDialogOpen(false)} disabled={aiLoading}>
-              Cancelar
-            </Button>
-            <Button onClick={handleGenerateWithAi} disabled={aiLoading} className="gap-2">
-              {aiLoading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
-                  <span>Gerando...</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4" />
-                  <span>Gerar com IA</span>
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Dialogs */}
+      <CreatePageDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        formData={formData}
+        setFormData={setFormData}
+        onSave={handleSavePage}
+        editMode={editMode}
+        handleTitleChange={handleTitleChange}
+      />
+      
+      <AiGenerationDialog
+        open={aiDialogOpen}
+        onOpenChange={setAiDialogOpen}
+        aiPrompt={aiPrompt}
+        setAiPrompt={setAiPrompt}
+        onGenerate={handleGenerateWithAi}
+        loading={aiLoading}
+      />
     </div>
   );
 };
