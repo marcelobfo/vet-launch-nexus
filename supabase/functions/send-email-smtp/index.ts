@@ -15,7 +15,7 @@ serve(async (req) => {
   }
 
   try {
-    const { to, subject, body, companyId, whatsapp, code } = await req.json();
+    const { to, subject, body, companyId, whatsapp, code, type } = await req.json();
 
     if (!to || !subject || !body || !companyId) {
       return new Response(JSON.stringify({ 
@@ -95,7 +95,7 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            type: 'access_code',
+            type: type || 'access_code',
             data: {
               phone: whatsapp,
               code: code,

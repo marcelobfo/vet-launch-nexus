@@ -54,6 +54,111 @@ export type Database = {
           },
         ]
       }
+      campaign_leads: {
+        Row: {
+          campaign_id: string
+          clicked_at: string | null
+          created_at: string | null
+          id: string
+          lead_id: string
+          opened_at: string | null
+          sent_at: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          campaign_id: string
+          clicked_at?: string | null
+          created_at?: string | null
+          id?: string
+          lead_id: string
+          opened_at?: string | null
+          sent_at?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          campaign_id?: string
+          clicked_at?: string | null
+          created_at?: string | null
+          id?: string
+          lead_id?: string
+          opened_at?: string | null
+          sent_at?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_leads_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_leads_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaigns: {
+        Row: {
+          company_id: string
+          content: string
+          created_at: string | null
+          id: string
+          name: string
+          scheduled_for: string | null
+          sent_at: string | null
+          status: string | null
+          subject: string
+          updated_at: string | null
+        }
+        Insert: {
+          company_id: string
+          content: string
+          created_at?: string | null
+          id?: string
+          name: string
+          scheduled_for?: string | null
+          sent_at?: string | null
+          status?: string | null
+          subject: string
+          updated_at?: string | null
+        }
+        Update: {
+          company_id?: string
+          content?: string
+          created_at?: string | null
+          id?: string
+          name?: string
+          scheduled_for?: string | null
+          sent_at?: string | null
+          status?: string | null
+          subject?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaigns_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaigns_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company_with_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           allow_signup: boolean | null
@@ -101,6 +206,124 @@ export type Database = {
           whatsapp_webhook_url?: string | null
         }
         Relationships: []
+      }
+      landing_pages: {
+        Row: {
+          company_id: string
+          content: Json
+          created_at: string | null
+          id: string
+          published: boolean | null
+          slug: string
+          template_id: string | null
+          title: string
+          updated_at: string | null
+          webhook_url: string | null
+        }
+        Insert: {
+          company_id: string
+          content: Json
+          created_at?: string | null
+          id?: string
+          published?: boolean | null
+          slug: string
+          template_id?: string | null
+          title: string
+          updated_at?: string | null
+          webhook_url?: string | null
+        }
+        Update: {
+          company_id?: string
+          content?: Json
+          created_at?: string | null
+          id?: string
+          published?: boolean | null
+          slug?: string
+          template_id?: string | null
+          title?: string
+          updated_at?: string | null
+          webhook_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landing_pages_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landing_pages_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company_with_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leads: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          custom_fields: Json | null
+          email: string
+          id: string
+          landing_page_id: string | null
+          name: string | null
+          phone: string | null
+          source: string | null
+          tags: string[] | null
+          updated_at: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          custom_fields?: Json | null
+          email: string
+          id?: string
+          landing_page_id?: string | null
+          name?: string | null
+          phone?: string | null
+          source?: string | null
+          tags?: string[] | null
+          updated_at?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          custom_fields?: Json | null
+          email?: string
+          id?: string
+          landing_page_id?: string | null
+          name?: string | null
+          phone?: string | null
+          source?: string | null
+          tags?: string[] | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company_with_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_landing_page_id_fkey"
+            columns: ["landing_page_id"]
+            isOneToOne: false
+            referencedRelation: "landing_pages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       projects: {
         Row: {
