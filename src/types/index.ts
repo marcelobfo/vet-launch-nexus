@@ -1,3 +1,4 @@
+
 // Import Json type - no need to import from supabase anymore since we define it below
 // Define Json type locally to fix import issues
 export type Json =
@@ -128,4 +129,16 @@ export interface SecuritySettingsProps {
     adminPassword: string;
   };
   setSecuritySettings: (settings: any) => void;
+}
+
+export interface Company {
+  id: string;
+  name: string;
+  code: string;
+}
+
+export interface LeadFormData {
+  name: string;
+  email: string;
+  phone: string;
 }
