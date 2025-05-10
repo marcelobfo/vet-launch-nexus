@@ -1,200 +1,149 @@
-
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { 
-  Table, 
-  TableBody, 
-  TableCaption, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
 import { supabase } from '@/integrations/supabase/client';
-import { EyeIcon, Edit2Icon, CheckCircle, XCircle, Building } from "lucide-react";
-import LoadingSpinner from '../landing-page/LoadingSpinner';
+import { useToast } from "@/hooks/use-toast";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Switch } from "@/components/ui/switch"
+import { MoreVertical, Edit } from "lucide-react";
+import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { useNavigate } from 'react-router-dom';
 
 interface Company {
   id: string;
   name: string;
   code: string;
   is_active: boolean;
-  created_at: string;
-  user_count: number;
 }
 
 const CompanyManagementAdmin = () => {
-  const { toast } = useToast();
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [loading, setLoading] = useState(true);
-  
+  const { toast } = useToast();
+  const navigate = useNavigate();
+
   useEffect(() => {
     fetchCompanies();
   }, []);
-  
+
   const fetchCompanies = async () => {
     try {
-      // Note: In a real application, we would create a SQL function to get companies with their user count
-      const { data: companiesData, error } = await supabase
+      const { data, error } = await supabase
         .from('companies')
-        .select('*');
-      
-      if (error) throw error;
-      
-      // Fetch user count for each company
-      const companiesWithUserCount = await Promise.all(
-        (companiesData || []).map(async (company) => {
-          const { data: users, error: userError } = await supabase
-            .from('users')
-            .select('id')
-            .eq('company_id', company.id);
-          
-          return {
-            ...company,
-            user_count: users?.length || 0
-          };
-        })
-      );
-      
-      setCompanies(companiesWithUserCount);
-    } catch (error) {
-      console.error('Error fetching companies:', error);
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        throw error;
+      }
+
+      setCompanies(data || []);
+    } catch (error: any) {
       toast({
-        title: 'Erro',
-        description: 'Não foi possível carregar as empresas',
-        variant: 'destructive',
+        title: "Erro ao carregar empresas",
+        description: error.message,
+        variant: "destructive"
       });
-    } finally {
-      setLoading(false);
     }
   };
-  
-  const toggleCompanyStatus = async (companyId: string, currentStatus: boolean) => {
+
+  const handleStatusToggle = async (companyId: string, currentStatus: boolean) => {
     try {
-      await supabase
+      const { error } = await supabase
         .from('companies')
         .update({ is_active: !currentStatus })
         .eq('id', companyId);
-      
-      // Update the local state
-      setCompanies(companies.map(company => {
-        if (company.id === companyId) {
-          return { ...company, is_active: !currentStatus };
-        }
-        return company;
-      }));
+
+      if (error) {
+        throw error;
+      }
       
       toast({
-        title: 'Status atualizado',
-        description: `Empresa ${!currentStatus ? 'ativada' : 'desativada'} com sucesso`,
+        title: `Empresa ${currentStatus ? 'desativada' : 'ativada'}`,
+        description: `A empresa foi ${currentStatus ? 'desativada' : 'ativada'} com sucesso.`,
+        variant: currentStatus ? "destructive" : "default"
       });
-    } catch (error) {
-      console.error('Error updating company status:', error);
+      
+      fetchCompanies();
+    } catch (error: any) {
       toast({
-        title: 'Erro',
-        description: 'Não foi possível atualizar o status da empresa',
-        variant: 'destructive',
+        title: "Erro ao atualizar status",
+        description: error.message,
+        variant: "destructive"
       });
     }
   };
-  
-  // Format date in Brazilian format
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    }).format(date);
+
+  const handleEdit = (companyId: string) => {
+    navigate(`/super-admin/company/${companyId}`);
   };
-  
+
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="flex items-center gap-2">
-          <Building className="h-5 w-5" />
-          Empresas Cadastradas
-        </CardTitle>
-        <Button size="sm">Adicionar Empresa</Button>
-      </CardHeader>
-      <CardContent>
-        {loading ? (
-          <div className="flex items-center justify-center p-8">
-            <LoadingSpinner />
-          </div>
-        ) : (
-          <Table>
-            <TableCaption>Lista de empresas cadastradas no sistema</TableCaption>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Empresa</TableHead>
-                <TableHead>Código</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Usuários</TableHead>
-                <TableHead>Data de Cadastro</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {companies.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-gray-500">
-                    Nenhuma empresa encontrada
-                  </TableCell>
-                </TableRow>
-              ) : (
-                companies.map((company) => (
-                  <TableRow key={company.id}>
-                    <TableCell className="font-medium">{company.name}</TableCell>
-                    <TableCell>
-                      <code className="bg-gray-800 px-2 py-1 rounded text-sm">
-                        {company.code}
-                      </code>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={company.is_active ? "success" : "destructive"}>
-                        {company.is_active ? 'Ativa' : 'Inativa'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{company.user_count}</TableCell>
-                    <TableCell>
-                      {company.created_at ? formatDate(company.created_at) : '-'}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="icon" title="Ver detalhes">
-                          <EyeIcon className="h-4 w-4" />
-                        </Button>
-                        
-                        <Button variant="outline" size="icon" title="Editar">
-                          <Edit2Icon className="h-4 w-4" />
-                        </Button>
-                        
-                        <Button
-                          variant={company.is_active ? "destructive" : "success"}
-                          size="icon"
-                          title={company.is_active ? "Desativar" : "Ativar"}
-                          onClick={() => toggleCompanyStatus(company.id, company.is_active)}
-                        >
-                          {company.is_active ? (
-                            <XCircle className="h-4 w-4" />
-                          ) : (
-                            <CheckCircle className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        )}
-      </CardContent>
-    </Card>
+    <div>
+      <h2 className="text-2xl font-bold mb-4">Gerenciamento de Empresas</h2>
+      <Table>
+        <TableCaption>Lista de empresas cadastradas no sistema.</TableCaption>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Nome</TableHead>
+            <TableHead>Código</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead className="text-right">Ações</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {companies.map((company) => (
+            <TableRow key={company.id}>
+              <TableCell>{company.name}</TableCell>
+              <TableCell>{company.code}</TableCell>
+              <TableCell>
+                <Switch
+                  id={`company-status-${company.id}`}
+                  checked={company.is_active}
+                  onCheckedChange={() => handleStatusToggle(company.id, company.is_active)}
+                />
+              </TableCell>
+              <TableCell className="text-right">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="h-8 w-8 p-0">
+                      <span className="sr-only">Open menu</span>
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>Ações</DropdownMenuLabel>
+                    <DropdownMenuItem onClick={() => handleEdit(company.id)}>
+                      <Edit className="mr-2 h-4 w-4" /> Editar
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem>
+                      <a href={`/admin?company=${company.code}`} target="_blank" rel="noopener noreferrer">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-layout mr-2 h-4 w-4"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="9" x="14" y="3" rx="1"/><rect width="7" height="9" x="3" y="12" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/></svg>
+                        Acessar como Admin
+                      </a>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   );
 };
 
