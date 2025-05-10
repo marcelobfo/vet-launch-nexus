@@ -24,7 +24,7 @@ const SuperAdminHeader: React.FC<SuperAdminHeaderProps> = ({ onLogout }) => {
             className="bg-transparent border-white/30 text-white hover:bg-white/10"
           >
             <LogOut className="h-4 w-4 mr-2" />
-            <span>Sair</span>
+            <span>Logout</span>
           </Button>
         </div>
       </div>

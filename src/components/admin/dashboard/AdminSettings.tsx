@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { 
   Tabs, 
   TabsContent, 
@@ -19,7 +19,7 @@ import SMTPConfig from '@/components/admin/SMTPConfig';
 import DatabaseConfig from '@/components/admin/DatabaseConfig';
 import SecuritySettings from '@/components/admin/SecuritySettings';
 import WebhookSettings from '@/components/admin/WebhookSettings';
-import FacebookApiConfig from '@/components/admin/FacebookApiConfig';
+import FacebookApiConfig from '@/components/admin/facebook/FacebookApiConfig';
 import { WebhookSettingsProps, SecuritySettingsProps } from '@/types';
 
 const AdminSettings = () => {
