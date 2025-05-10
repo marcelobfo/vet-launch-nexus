@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/auth/AuthProvider';
 import AdminHeader from '@/components/admin/dashboard/AdminHeader';
 import AdminFooter from '@/components/admin/dashboard/AdminFooter';
 import AdminTabs from '@/components/admin/dashboard/AdminTabs';
@@ -17,11 +17,40 @@ const Admin = () => {
   const [userPermissions, setUserPermissions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   
+  // Check company status - moved into a single useEffect
   useEffect(() => {
     if (!user || !company) {
       return;
     }
     
+    // Function to check company status
+    const checkCompanyStatus = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('companies')
+          .select('is_active')
+          .eq('id', company.id)
+          .single();
+        
+        if (error) throw error;
+        
+        if (!data.is_active) {
+          toast({
+            title: "Empresa inativa",
+            description: "Sua empresa está inativa. Entre em contato com o suporte.",
+            variant: "destructive"
+          });
+          
+          // Sign out the user
+          localStorage.removeItem('session');
+          navigate('/login');
+        }
+      } catch (error) {
+        console.error('Error checking company status:', error);
+      }
+    };
+    
+    // Function to fetch user permissions
     const fetchUserPermissions = async () => {
       try {
         // In a real application, fetch permissions from a user_permissions table
@@ -67,9 +96,11 @@ const Admin = () => {
         setLoading(false);
       }
     };
-    
+
+    // Run both functions
+    checkCompanyStatus();
     fetchUserPermissions();
-  }, [user, company]);
+  }, [user, company, activeTab, navigate, toast]);
   
   if (!user || !company) {
     return (
@@ -92,40 +123,6 @@ const Admin = () => {
   }
 
   const isAdmin = user.role === 'admin';
-  
-  // Check if the company is active
-  const checkCompanyStatus = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('companies')
-        .select('is_active')
-        .eq('id', company.id)
-        .single();
-      
-      if (error) throw error;
-      
-      if (!data.is_active) {
-        toast({
-          title: "Empresa inativa",
-          description: "Sua empresa está inativa. Entre em contato com o suporte.",
-          variant: "destructive"
-        });
-        
-        // Sign out the user
-        localStorage.removeItem('session');
-        navigate('/login');
-      }
-    } catch (error) {
-      console.error('Error checking company status:', error);
-    }
-  };
-  
-  // Check company status on initial load
-  useEffect(() => {
-    if (company) {
-      checkCompanyStatus();
-    }
-  }, [company]);
   
   return (
     <div className="flex flex-col min-h-screen bg-background">
