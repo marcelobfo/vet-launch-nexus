@@ -157,9 +157,9 @@ const SecuritySettings: React.FC<SecuritySettingsProps> = ({
     setIsCreating(true);
     
     try {
-      // Use the registration function directly
-      const { register } = await import('@/contexts/auth/registration');
-      const result = await register({
+      // Fixed import to use the correct exported function
+      const registration = await import('@/contexts/auth/registration');
+      const result = await registration.register({
         name: newCompany.adminName,
         email: newCompany.email,
         whatsapp: newCompany.whatsapp,

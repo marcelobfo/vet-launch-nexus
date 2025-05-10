@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -6,7 +7,8 @@ import { User, Company } from './types';
 import { AuthState, AuthContextType } from './types';
 import { sendMagicLink } from './magicLinkAuth';
 import { sendLoginCode, verifyLoginCode as verifyCode } from './accessCodeAuth';
-import { register as registerUser } from './registration';
+// Fixed import to use the named export from the registration file
+import * as registrationModule from './registration';
 import { getSessionFromLocalStorage, clearSessionFromLocalStorage } from './authUtils';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -100,7 +102,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const register = async (userData: { name: string; email: string; whatsapp: string; companyName: string }) => {
-    return await registerUser(userData);
+    return await registrationModule.register(userData);
   };
 
   return (
