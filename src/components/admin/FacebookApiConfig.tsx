@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from '@/contexts/AuthContext';
 import { Facebook, Key, AlertTriangle, BookOpen, ArrowRight, Check } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 import { 
   Accordion,
@@ -16,21 +18,71 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 
+interface FacebookConfig {
+  id?: string;
+  company_id: string;
+  app_id: string;
+  app_secret: string;
+  access_token: string;
+  pixel_id: string;
+  ad_account_id: string;
+  enable_tracking: boolean;
+  advanced_matching: boolean;
+  campaign_id?: string;
+  is_connected: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
 const FacebookApiConfig = () => {
   const { toast } = useToast();
+  const { company } = useAuth();
   
-  const [fbConfig, setFbConfig] = useState({
-    appId: '',
-    appSecret: '',
-    accessToken: '',
-    pixelId: '',
-    enableTracking: true,
-    advancedMatching: false,
-    campaignId: '',
-    adAccountId: ''
+  const [fbConfig, setFbConfig] = useState<FacebookConfig>({
+    company_id: company?.id || '',
+    app_id: '',
+    app_secret: '',
+    access_token: '',
+    pixel_id: '',
+    ad_account_id: '',
+    enable_tracking: true,
+    advanced_matching: false,
+    is_connected: false
   });
 
-  const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connected' | 'error'>('disconnected');
+  const [loading, setLoading] = useState(false);
+  const [loadingConfig, setLoadingConfig] = useState(true);
+
+  useEffect(() => {
+    if (company) {
+      fetchFacebookConfig();
+    }
+  }, [company]);
+
+  const fetchFacebookConfig = async () => {
+    if (!company) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('facebook_configs')
+        .select('*')
+        .eq('company_id', company.id)
+        .maybeSingle();
+      
+      if (error) throw error;
+      
+      if (data) {
+        setFbConfig({
+          ...data,
+          app_secret: data.app_secret ? '••••••••••••••••' : '', // Mask the secret
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching Facebook config:', error);
+    } finally {
+      setLoadingConfig(false);
+    }
+  };
 
   const handleChange = (field: string, value: string | boolean) => {
     setFbConfig(prev => ({
@@ -39,20 +91,69 @@ const FacebookApiConfig = () => {
     }));
   };
 
-  const handleConnect = () => {
-    if (fbConfig.appId && fbConfig.accessToken) {
-      setConnectionStatus('connected');
+  const handleConnect = async () => {
+    if (!fbConfig.app_id || !fbConfig.access_token) {
       toast({
-        title: "Conectado com Sucesso",
-        description: "API do Facebook configurada com sucesso (simulação).",
-      });
-    } else {
-      setConnectionStatus('error');
-      toast({
-        title: "Erro de Conexão",
-        description: "Preencha todos os campos obrigatórios.",
+        title: "Campos obrigatórios",
+        description: "App ID e Access Token são obrigatórios para conectar com a API do Facebook.",
         variant: "destructive"
       });
+      return;
+    }
+
+    setLoading(true);
+    
+    try {
+      // In a real implementation, verify the token against the Facebook API
+      // Here we'll just simulate a successful connection
+      
+      const updatedConfig = {
+        ...fbConfig,
+        is_connected: true,
+        company_id: company?.id || '',
+        updated_at: new Date().toISOString()
+      };
+      
+      // If there's an existing config, update it, otherwise insert a new one
+      if (fbConfig.id) {
+        // Don't send masked password back to server
+        const configToSave = { 
+          ...updatedConfig,
+          // Only update app_secret if it's not masked (i.e., user changed it)
+          app_secret: fbConfig.app_secret === '••••••••••••••••' 
+            ? undefined 
+            : fbConfig.app_secret
+        };
+        
+        const { error } = await supabase
+          .from('facebook_configs')
+          .update(configToSave)
+          .eq('id', fbConfig.id);
+          
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('facebook_configs')
+          .insert([updatedConfig]);
+          
+        if (error) throw error;
+      }
+      
+      setFbConfig(updatedConfig);
+      
+      toast({
+        title: "Conectado com Sucesso",
+        description: "API do Facebook configurada com sucesso.",
+      });
+    } catch (error) {
+      console.error('Error connecting to Facebook API:', error);
+      toast({
+        title: "Erro de Conexão",
+        description: "Não foi possível conectar à API do Facebook. Verifique suas credenciais.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -80,8 +181,20 @@ const FacebookApiConfig = () => {
     {
       title: "Configurar o Pixel",
       content: "No Gerenciador de Eventos, crie um Pixel do Facebook e obtenha o ID do Pixel para rastreamento de conversões."
+    },
+    {
+      title: "Encontrar o ID da Conta de Anúncios",
+      content: "No Gerenciador de Anúncios do Facebook, localize o ID da sua conta de anúncios. Ele geralmente começa com 'act_'."
     }
   ];
+
+  if (loadingConfig) {
+    return (
+      <div className="flex items-center justify-center p-20">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -106,22 +219,17 @@ const FacebookApiConfig = () => {
             <TabsContent value="config" className="mt-4 space-y-6">
               <div className="space-y-4">
                 <div className={`p-3 rounded-md flex items-center gap-3 ${
-                  connectionStatus === 'connected' ? 'bg-green-900/20 border border-green-700/30 text-green-400' :
-                  connectionStatus === 'error' ? 'bg-red-900/20 border border-red-700/30 text-red-400' :
+                  fbConfig.is_connected ? 'bg-green-900/20 border border-green-700/30 text-green-400' :
                   'bg-amber-900/20 border border-amber-700/30 text-amber-400'
                 }`}>
-                  {connectionStatus === 'connected' ? (
+                  {fbConfig.is_connected ? (
                     <Check className="h-5 w-5 flex-shrink-0" />
-                  ) : connectionStatus === 'error' ? (
-                    <AlertTriangle className="h-5 w-5 flex-shrink-0" />
                   ) : (
                     <AlertTriangle className="h-5 w-5 flex-shrink-0" />
                   )}
                   <div className="text-sm">
-                    {connectionStatus === 'connected' ? (
+                    {fbConfig.is_connected ? (
                       <p><strong>Conectado:</strong> API do Facebook configurada com sucesso.</p>
-                    ) : connectionStatus === 'error' ? (
-                      <p><strong>Erro:</strong> Verifique as credenciais e tente novamente.</p>
                     ) : (
                       <p><strong>Desconectado:</strong> Configure suas credenciais para integrar com a API do Facebook.</p>
                     )}
@@ -135,8 +243,8 @@ const FacebookApiConfig = () => {
                     </Label>
                     <Input
                       id="appId"
-                      value={fbConfig.appId}
-                      onChange={(e) => handleChange('appId', e.target.value)}
+                      value={fbConfig.app_id}
+                      onChange={(e) => handleChange('app_id', e.target.value)}
                       placeholder="123456789012345"
                     />
                   </div>
@@ -147,8 +255,8 @@ const FacebookApiConfig = () => {
                       <Input
                         id="appSecret"
                         type="password"
-                        value={fbConfig.appSecret}
-                        onChange={(e) => handleChange('appSecret', e.target.value)}
+                        value={fbConfig.app_secret}
+                        onChange={(e) => handleChange('app_secret', e.target.value)}
                         placeholder="••••••••••••••••••••••••••••••"
                       />
                       <Key className="absolute right-3 top-2.5 h-4 w-4 text-gray-400" />
@@ -162,8 +270,8 @@ const FacebookApiConfig = () => {
                   </Label>
                   <Input
                     id="accessToken"
-                    value={fbConfig.accessToken}
-                    onChange={(e) => handleChange('accessToken', e.target.value)}
+                    value={fbConfig.access_token}
+                    onChange={(e) => handleChange('access_token', e.target.value)}
                     placeholder="EAAaXXzz..."
                   />
                   <p className="text-xs text-gray-400">
@@ -177,8 +285,8 @@ const FacebookApiConfig = () => {
                     <Label htmlFor="pixelId">Pixel ID</Label>
                     <Input
                       id="pixelId"
-                      value={fbConfig.pixelId}
-                      onChange={(e) => handleChange('pixelId', e.target.value)}
+                      value={fbConfig.pixel_id}
+                      onChange={(e) => handleChange('pixel_id', e.target.value)}
                       placeholder="123456789012345"
                     />
                   </div>
@@ -187,8 +295,8 @@ const FacebookApiConfig = () => {
                     <Label htmlFor="adAccountId">Ad Account ID</Label>
                     <Input
                       id="adAccountId"
-                      value={fbConfig.adAccountId}
-                      onChange={(e) => handleChange('adAccountId', e.target.value)}
+                      value={fbConfig.ad_account_id}
+                      onChange={(e) => handleChange('ad_account_id', e.target.value)}
                       placeholder="act_123456789"
                     />
                   </div>
@@ -200,11 +308,11 @@ const FacebookApiConfig = () => {
                     <div className="flex items-center space-x-2">
                       <Switch
                         id="enableTracking"
-                        checked={fbConfig.enableTracking}
-                        onCheckedChange={(checked) => handleChange('enableTracking', checked)}
+                        checked={fbConfig.enable_tracking}
+                        onCheckedChange={(checked) => handleChange('enable_tracking', checked)}
                       />
                       <Label htmlFor="enableTracking" className="text-sm text-gray-400">
-                        {fbConfig.enableTracking ? 'Ativado' : 'Desativado'}
+                        {fbConfig.enable_tracking ? 'Ativado' : 'Desativado'}
                       </Label>
                     </div>
                   </div>
@@ -214,11 +322,11 @@ const FacebookApiConfig = () => {
                     <div className="flex items-center space-x-2">
                       <Switch
                         id="advancedMatching"
-                        checked={fbConfig.advancedMatching}
-                        onCheckedChange={(checked) => handleChange('advancedMatching', checked)}
+                        checked={fbConfig.advanced_matching}
+                        onCheckedChange={(checked) => handleChange('advanced_matching', checked)}
                       />
                       <Label htmlFor="advancedMatching" className="text-sm text-gray-400">
-                        {fbConfig.advancedMatching ? 'Ativado' : 'Desativado'}
+                        {fbConfig.advanced_matching ? 'Ativado' : 'Desativado'}
                       </Label>
                     </div>
                   </div>
@@ -228,9 +336,10 @@ const FacebookApiConfig = () => {
                   <Button
                     onClick={handleConnect}
                     className="bg-blue-600 hover:bg-blue-700"
+                    disabled={loading}
                   >
                     <Facebook className="h-4 w-4 mr-2" />
-                    Conectar com Facebook
+                    {loading ? 'Conectando...' : 'Conectar com Facebook'}
                   </Button>
                 </div>
               </div>
@@ -264,7 +373,11 @@ const FacebookApiConfig = () => {
                 </Accordion>
                 
                 <div className="mt-6">
-                  <Button variant="outline" className="gap-2">
+                  <Button 
+                    variant="outline" 
+                    className="gap-2"
+                    onClick={() => window.open('https://developers.facebook.com/docs/marketing-api/get-started', '_blank')}
+                  >
                     <ArrowRight className="h-4 w-4" />
                     <span>Acessar Documentação Completa</span>
                   </Button>

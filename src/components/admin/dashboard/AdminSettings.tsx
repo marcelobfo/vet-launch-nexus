@@ -10,7 +10,8 @@ import {
   Users, 
   Building, 
   Mail, 
-  Database 
+  Database,
+  Facebook 
 } from 'lucide-react';
 import UserManagement from '@/components/admin/UserManagement';
 import CompanyManagement from '@/components/admin/CompanyManagement';
@@ -18,6 +19,7 @@ import SMTPConfig from '@/components/admin/SMTPConfig';
 import DatabaseConfig from '@/components/admin/DatabaseConfig';
 import SecuritySettings from '@/components/admin/SecuritySettings';
 import WebhookSettings from '@/components/admin/WebhookSettings';
+import FacebookApiConfig from '@/components/admin/FacebookApiConfig';
 import { WebhookSettingsProps, SecuritySettingsProps } from '@/types';
 
 const AdminSettings = () => {
@@ -69,6 +71,11 @@ const AdminSettings = () => {
           Email
         </TabsTrigger>
         
+        <TabsTrigger value="facebook" className="flex-1">
+          <Facebook className="h-4 w-4 mr-2" />
+          Facebook
+        </TabsTrigger>
+        
         <TabsTrigger value="api" className="flex-1">
           <Database className="h-4 w-4 mr-2" />
           API e Webhooks
@@ -85,6 +92,10 @@ const AdminSettings = () => {
       
       <TabsContent value="email">
         <SMTPConfig />
+      </TabsContent>
+      
+      <TabsContent value="facebook">
+        <FacebookApiConfig />
       </TabsContent>
       
       <TabsContent value="api">
