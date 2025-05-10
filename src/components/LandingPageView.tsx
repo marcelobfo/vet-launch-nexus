@@ -126,19 +126,20 @@ const LandingPageView = () => {
       {/* Conteúdo da página */}
       <main className="flex-grow">
         {page.content && page.content.sections && page.content.sections.length > 0 ? (
-          page.content.sections.map((section, index) => (
-            <SectionRenderer
-              key={index}
-              section={section}
-              index={index}
-              pageId={page.id}
-              companyCode={companyCode || ''}
-              pageTitle={page.title}
-              pageSlug={page.slug}
-            />
-          ))
+          <SectionRenderer
+            sections={page.content.sections}
+            pageId={page.id}
+            companyCode={companyCode || ''}
+            pageTitle={page.title}
+            pageSlug={page.slug}
+          />
         ) : (
-          <DefaultForm page={page} companyCode={companyCode || ''} />
+          <DefaultForm
+            pageId={page.id}
+            companyCode={companyCode || ''}
+            pageTitle={page.title}
+            pageSlug={page.slug}
+          />
         )}
       </main>
       

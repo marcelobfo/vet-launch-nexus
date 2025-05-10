@@ -1,4 +1,3 @@
-
 import React, { useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -119,7 +118,7 @@ const ReportPdfView: React.FC<ReportPdfViewProps> = ({ companyInfo, metrics }) =
                 <h3 className="text-xl font-semibold text-white mb-4 border-b border-gray-700 pb-2">
                   Resumo de Desempenho
                 </h3>
-                <PerformanceMetrics performance={performance} />
+                <PerformanceMetrics />
               </div>
               
               {/* Gráfico de Conversão */}

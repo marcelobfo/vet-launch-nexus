@@ -4,13 +4,22 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ConversionChart from './ConversionChart';
 import ROIChart from './ROIChart';
+import { generateConversionChartData, generateROIChartData } from '@/utils/chartDataUtils';
 
 // Define props to match what the component expects
 interface PerformanceMetricsProps {
-  // Add any props as needed
+  // Original props
+  performance?: {
+    totalLeads: number;
+    totalConversions: number;
+    grossRevenue: number;
+    roi: number;
+    conversionRate: number;
+  };
+  // Add any other props as needed
 }
 
-const PerformanceMetrics: React.FC<PerformanceMetricsProps> = () => {
+const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({ performance }) => {
   const overviewData = {
     leads: 45,
     conversions: 12,
@@ -35,6 +44,18 @@ const PerformanceMetrics: React.FC<PerformanceMetricsProps> = () => {
     { month: 'Mai', cost: 1000, revenue: 2500 },
     { month: 'Jun', cost: 1100, revenue: 3000 }
   ];
+
+  // Transform data to match the expected format for charts
+  const formattedConversionData = monthlyConversionsData.map(item => ({
+    name: item.month,
+    value: (item.conversions / item.leads) * 100
+  }));
+
+  const formattedRoiData = roiData.map(item => ({
+    name: item.month,
+    ROI: ((item.revenue - item.cost) / item.cost) * 100,
+    Lucro: (item.revenue - item.cost) / 1000
+  }));
 
   return (
     <div className="space-y-6">
@@ -101,7 +122,7 @@ const PerformanceMetrics: React.FC<PerformanceMetricsProps> = () => {
             </CardHeader>
             <CardContent className="pt-4">
               <div className="h-80">
-                <ConversionChart data={monthlyConversionsData} />
+                <ConversionChart data={formattedConversionData} />
               </div>
             </CardContent>
           </Card>
@@ -117,7 +138,7 @@ const PerformanceMetrics: React.FC<PerformanceMetricsProps> = () => {
             </CardHeader>
             <CardContent className="pt-4">
               <div className="h-80">
-                <ROIChart data={roiData} />
+                <ROIChart data={formattedRoiData} />
               </div>
             </CardContent>
           </Card>
