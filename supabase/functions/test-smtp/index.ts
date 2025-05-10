@@ -42,35 +42,50 @@ serve(async (req) => {
       );
     }
     
-    // Configurar cliente SMTP
-    const client = new SmtpClient();
-    await client.connectTLS({
-      hostname: config.host,
-      port: config.port,
-      username: config.user,
-      password: config.pass,
-    });
+    // Log the request for debugging
+    console.log("SMTP test request:", { host: config.host, port: config.port, to, subject });
     
-    // Enviar email de teste
-    await client.send({
-      from: config.from,
-      to: to,
-      subject: subject,
-      content: text,
-    });
-    
-    await client.close();
-    
-    return new Response(
-      JSON.stringify({ 
-        success: true,
-        message: "Teste de email enviado com sucesso" 
-      }),
-      { 
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200 
-      }
-    );
+    try {
+      // Configurar cliente SMTP
+      const client = new SmtpClient();
+      
+      await client.connectTLS({
+        hostname: config.host,
+        port: config.port,
+        username: config.user,
+        password: config.pass,
+        auth: {
+          username: config.user,
+          password: config.pass,
+        },
+      });
+      
+      // Enviar email de teste
+      const result = await client.send({
+        from: config.from,
+        to: to,
+        subject: subject,
+        content: text,
+      });
+      
+      await client.close();
+      
+      console.log("Email sent successfully:", result);
+      
+      return new Response(
+        JSON.stringify({ 
+          success: true,
+          message: "Teste de email enviado com sucesso" 
+        }),
+        { 
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200 
+        }
+      );
+    } catch (smtpError) {
+      console.error("SMTP client error:", smtpError);
+      throw new Error(`Erro no cliente SMTP: ${smtpError.message}`);
+    }
   } catch (error) {
     console.error("Error in test-smtp function:", error);
     return new Response(

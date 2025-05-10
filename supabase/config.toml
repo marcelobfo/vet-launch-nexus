@@ -1,11 +1,8 @@
 
 project_id = "opipazvvefdcdyywybpm"
 
-[functions.send-email-smtp]
-verify_jwt = true
-
 [functions.test-smtp]
-verify_jwt = true
+verify_jwt = false
 
-[functions.process-lead]
+[functions.super-admin-auth]
 verify_jwt = false

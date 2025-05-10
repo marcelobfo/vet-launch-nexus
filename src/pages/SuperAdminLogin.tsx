@@ -14,8 +14,10 @@ const SuperAdminLogin = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
+  const [whatsapp, setWhatsapp] = useState("38988285462"); // Pre-set the WhatsApp number
   const [accessCode, setAccessCode] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [step, setStep] = useState<'email' | 'code'>('email');
   
   // Check if user is already authenticated as super admin
   useEffect(() => {
@@ -38,92 +40,9 @@ const SuperAdminLogin = () => {
     checkSuperAdmin();
   }, [navigate]);
   
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleRequestCode = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     
-    if (!email || !accessCode) {
-      toast({
-        title: "Campos obrigatórios",
-        description: "Por favor, preencha todos os campos.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    setLoading(true);
-    
-    try {
-      // Verify if the email is registered as a super admin
-      const { data: superAdmins, error: queryError } = await supabase
-        .from('super_admins')
-        .select('*')
-        .eq('email', email)
-        .eq('is_active', true)
-        .single();
-      
-      if (queryError || !superAdmins) {
-        throw new Error("Credenciais inválidas ou usuário não encontrado.");
-      }
-      
-      // Verify access code
-      const { data: accessCodeData, error: accessCodeError } = await supabase
-        .from('super_admin_access_codes')
-        .select('*')
-        .eq('email', email)
-        .eq('code', accessCode)
-        .eq('is_used', false)
-        .gt('expires_at', new Date().toISOString())
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-      
-      if (accessCodeError || !accessCodeData) {
-        throw new Error("Código de acesso inválido ou expirado.");
-      }
-      
-      // Mark the access code as used
-      await supabase
-        .from('super_admin_access_codes')
-        .update({ is_used: true })
-        .eq('id', accessCodeData.id);
-      
-      // Update the last login timestamp
-      await supabase
-        .from('super_admins')
-        .update({ last_login: new Date().toISOString() })
-        .eq('id', superAdmins.id);
-      
-      // Set the super admin session with an expiration of 12 hours
-      const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + 12);
-      
-      localStorage.setItem('super_admin_session', JSON.stringify({
-        id: superAdmins.id,
-        email: superAdmins.email,
-        isValid: true,
-        expiresAt: expiresAt.toISOString()
-      }));
-      
-      toast({
-        title: "Login bem-sucedido",
-        description: "Você foi autenticado como Super Admin."
-      });
-      
-      // Redirect to super admin dashboard
-      navigate('/super-admin');
-    } catch (error: any) {
-      console.error("Erro ao fazer login:", error);
-      toast({
-        title: "Erro de autenticação",
-        description: error.message || "Não foi possível autenticar. Verifique suas credenciais.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  const handleRequestCode = async () => {
     if (!email) {
       toast({
         title: "Email necessário",
@@ -136,57 +55,41 @@ const SuperAdminLogin = () => {
     setLoading(true);
     
     try {
-      // Check if the email is registered as a super admin
-      const { data: superAdmin, error: queryError } = await supabase
-        .from('super_admins')
-        .select('*')
-        .eq('email', email)
-        .eq('is_active', true)
-        .single();
+      // Call the edge function to request an access code
+      const { data, error } = await supabase.functions.invoke('super-admin-auth', {
+        body: {
+          action: 'request_code',
+          email,
+          phoneNumber: whatsapp
+        }
+      });
       
-      if (queryError || !superAdmin) {
-        throw new Error("Email não registrado como Super Admin.");
+      if (error) {
+        throw new Error(error.message);
       }
       
-      // Generate a random 8 character access code
-      const code = Math.random().toString(36).substring(2, 6).toUpperCase() + 
-                   Math.random().toString(36).substring(2, 6).toUpperCase();
-      
-      // Set expiration to 30 minutes from now
-      const expiresAt = new Date();
-      expiresAt.setMinutes(expiresAt.getMinutes() + 30);
-      
-      // Store the access code
-      await supabase
-        .from('super_admin_access_codes')
-        .insert([
-          { 
-            email,
-            code,
-            expires_at: expiresAt.toISOString(),
-            is_used: false
-          }
-        ]);
-      
-      // In a real application, send the code via email
-      // For now, we'll just simulate this with a console log
-      console.log(`Access code for ${email}: ${code}`);
+      if (!data.success) {
+        throw new Error(data.message || "Não foi possível enviar o código de acesso.");
+      }
       
       toast({
         title: "Código enviado",
-        description: "Um código de acesso foi enviado para o seu email. Por favor, verifique sua caixa de entrada.",
+        description: `Um código de acesso foi enviado para o seu WhatsApp (${whatsapp}).`,
       });
       
-      // In development, show the code in the toast
-      if (process.env.NODE_ENV === 'development') {
+      // Move to code verification step
+      setStep('code');
+      
+      // In development, show the code in the toast if available
+      if (data.devCode) {
         toast({
           title: "Código de desenvolvimento",
-          description: `Código: ${code} (apenas visível em ambiente de desenvolvimento)`,
+          description: `Código: ${data.devCode} (apenas visível em ambiente de desenvolvimento)`,
           variant: "default"
         });
       }
       
-    } catch (error: any) {
+    } catch (error) {
       console.error("Erro ao solicitar código:", error);
       toast({
         title: "Erro",
@@ -196,6 +99,65 @@ const SuperAdminLogin = () => {
     } finally {
       setLoading(false);
     }
+  };
+  
+  const handleVerifyCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!accessCode) {
+      toast({
+        title: "Código necessário",
+        description: "Por favor, digite o código de acesso recebido.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setLoading(true);
+    
+    try {
+      // Call the edge function to verify the access code
+      const { data, error } = await supabase.functions.invoke('super-admin-auth', {
+        body: {
+          action: 'verify_code',
+          email,
+          code: accessCode
+        }
+      });
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      if (!data.success || !data.session) {
+        throw new Error(data.message || "Não foi possível verificar o código.");
+      }
+      
+      // Store the super admin session
+      localStorage.setItem('super_admin_session', JSON.stringify(data.session));
+      
+      toast({
+        title: "Login bem-sucedido",
+        description: "Você foi autenticado como Super Admin."
+      });
+      
+      // Redirect to super admin dashboard
+      navigate('/super-admin');
+    } catch (error) {
+      console.error("Erro ao verificar código:", error);
+      toast({
+        title: "Erro de autenticação",
+        description: error.message || "Não foi possível autenticar. Verifique o código e tente novamente.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const goBack = () => {
+    setStep('email');
+    setAccessCode('');
   };
   
   return (
@@ -213,62 +175,97 @@ const SuperAdminLogin = () => {
               <span>Super Admin</span>
             </CardTitle>
             <CardDescription>
-              Para acessar, informe seu email e o código de acesso.
+              {step === 'email' 
+                ? "Para acessar, informe seu email de Super Admin."
+                : "Digite o código de acesso enviado para seu WhatsApp."}
             </CardDescription>
           </CardHeader>
           
           <CardContent>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="super.admin@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="bg-background/50 border-input/50"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
+            {step === 'email' ? (
+              <form onSubmit={handleRequestCode} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email de Super Admin</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="super.admin@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="bg-background/50 border-input/50"
+                    autoComplete="off"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="whatsapp">WhatsApp para receber o código</Label>
+                  <Input
+                    id="whatsapp"
+                    type="tel"
+                    placeholder="(38) 98828-5462"
+                    value={whatsapp}
+                    onChange={(e) => setWhatsapp(e.target.value)}
+                    className="bg-background/50 border-input/50"
+                  />
+                </div>
+                
+                <Button 
+                  type="submit" 
+                  className="w-full bg-red-600 hover:bg-red-700"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    "Enviando código..."
+                  ) : (
+                    "Solicitar Código de Acesso"
+                  )}
+                </Button>
+              </form>
+            ) : (
+              <form onSubmit={handleVerifyCode} className="space-y-4">
+                <div className="space-y-2">
                   <Label htmlFor="accessCode">Código de Acesso</Label>
-                  <button
-                    type="button"
-                    onClick={handleRequestCode}
-                    className="text-xs text-blue-500 hover:underline"
+                  <Input
+                    id="accessCode"
+                    type="text"
+                    placeholder="XXXX-XXXX"
+                    value={accessCode}
+                    onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
+                    className="bg-background/50 border-input/50 text-center tracking-widest font-mono"
+                    maxLength={8}
+                    autoComplete="off"
+                    autoFocus
+                  />
+                </div>
+                
+                <div className="flex flex-col space-y-2">
+                  <Button 
+                    type="submit" 
+                    className="w-full bg-red-600 hover:bg-red-700"
                     disabled={loading}
                   >
-                    Solicitar código
-                  </button>
+                    {loading ? (
+                      "Verificando..."
+                    ) : (
+                      <>
+                        <Lock className="mr-2 h-4 w-4" />
+                        Acessar Painel
+                      </>
+                    )}
+                  </Button>
+                  
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={goBack}
+                    disabled={loading}
+                    className="mt-2"
+                  >
+                    Voltar
+                  </Button>
                 </div>
-                <Input
-                  id="accessCode"
-                  type="text"
-                  placeholder="XXXX-XXXX"
-                  value={accessCode}
-                  onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
-                  className="bg-background/50 border-input/50 text-center tracking-widest font-mono"
-                  maxLength={8}
-                />
-              </div>
-              
-              <Button 
-                type="submit" 
-                className="w-full bg-red-600 hover:bg-red-700"
-                disabled={loading}
-              >
-                {loading ? (
-                  "Autenticando..."
-                ) : (
-                  <>
-                    <Lock className="mr-2 h-4 w-4" />
-                    Acessar Painel
-                  </>
-                )}
-              </Button>
-            </form>
+              </form>
+            )}
           </CardContent>
           
           <CardFooter className="border-t border-gray-800 pt-4 flex justify-center">

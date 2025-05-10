@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,19 +7,19 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Mail, Server, Send, Check, AlertCircle } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/auth/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 
 const SMTPConfig = () => {
   const { toast } = useToast();
-  const { company } = useAuth();
+  const { user, company } = useAuth();
   
   const [config, setConfig] = useState({
-    smtp_host: 'smtp.hostinger.com.br',
-    smtp_port: '465',
-    smtp_user: 'contato@technedigital.com.br',
-    smtp_pass: 'Celo10.20.30',
-    smtp_from: 'contato@technedigital.com.br',
+    smtp_host: '',
+    smtp_port: '587',
+    smtp_user: '',
+    smtp_pass: '',
+    smtp_from: '',
     smtp_secure: true,
     webhook_url: '',
     whatsapp_webhook_url: ''
@@ -27,22 +28,28 @@ const SMTPConfig = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [testEmail, setTestEmail] = useState("");
 
   // Carregar configurações da empresa
   useEffect(() => {
     if (company) {
       setConfig({
-        smtp_host: company.smtp_host || 'smtp.hostinger.com.br',
-        smtp_port: company.smtp_port?.toString() || '465',
-        smtp_user: company.smtp_user || 'contato@technedigital.com.br',
-        smtp_pass: company.smtp_pass || 'Celo10.20.30',
-        smtp_from: company.smtp_from || 'contato@technedigital.com.br',
+        smtp_host: company.smtp_host || '',
+        smtp_port: company.smtp_port?.toString() || '587',
+        smtp_user: company.smtp_user || '',
+        smtp_pass: company.smtp_pass || '',
+        smtp_from: company.smtp_from || '',
         smtp_secure: true,
         webhook_url: company.webhook_url || '',
         whatsapp_webhook_url: company.whatsapp_webhook_url || ''
       });
+      
+      // Set test email to the current user's email by default
+      if (user?.email) {
+        setTestEmail(user.email);
+      }
     }
-  }, [company]);
+  }, [company, user]);
 
   const handleChange = (field: string, value: string | boolean) => {
     setConfig(prev => ({
@@ -52,10 +59,10 @@ const SMTPConfig = () => {
   };
 
   const handleTestSMTP = async () => {
-    if (!config.smtp_host || !config.smtp_port || !config.smtp_user || !config.smtp_pass || !config.smtp_from) {
+    if (!config.smtp_host || !config.smtp_port || !config.smtp_user || !config.smtp_pass || !config.smtp_from || !testEmail) {
       toast({
         title: "Campos incompletos",
-        description: "Preencha todos os campos de configuração SMTP para realizar o teste.",
+        description: "Preencha todos os campos de configuração SMTP e o e-mail de teste.",
         variant: "destructive"
       });
       return;
@@ -64,8 +71,18 @@ const SMTPConfig = () => {
     setIsTesting(true);
     
     try {
+      // Log the parameters we're sending
+      console.log("Testing SMTP with parameters:", {
+        host: config.smtp_host,
+        port: parseInt(config.smtp_port),
+        user: config.smtp_user,
+        pass: "***hidden***",
+        from: config.smtp_from,
+        to: testEmail
+      });
+      
       // Chamar uma edge function do Supabase para testar o envio de e-mail
-      const { error } = await supabase.functions.invoke('test-smtp', {
+      const { data, error } = await supabase.functions.invoke('test-smtp', {
         body: {
           config: {
             host: config.smtp_host,
@@ -75,14 +92,20 @@ const SMTPConfig = () => {
             from: config.smtp_from,
             secure: config.smtp_secure
           },
-          to: company?.smtp_user || config.smtp_user, // Envia para o próprio usuário como teste
+          to: testEmail,
           subject: 'Teste de Configuração SMTP',
           text: 'Este é um e-mail de teste para verificar a configuração SMTP.'
         }
       });
 
+      console.log("SMTP test response:", data, error);
+
       if (error) {
         throw new Error(error.message);
+      }
+
+      if (!data.success) {
+        throw new Error(data.error || "Erro desconhecido ao testar SMTP");
       }
 
       toast({
@@ -354,22 +377,36 @@ const SMTPConfig = () => {
               <Label htmlFor="smtp_secure">Usar conexão segura (SSL/TLS)</Label>
             </div>
             
-            <div className="pt-2">
-              <Button
-                onClick={handleTestSMTP}
-                variant="outline"
-                disabled={isTesting}
-                className="flex gap-2"
-              >
-                {isTesting ? (
-                  <>Testando...</>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4" />
-                    <span>Testar Configuração</span>
-                  </>
-                )}
-              </Button>
+            <div className="bg-vet-primary/10 p-4 rounded-md border border-vet-primary/30 space-y-3 mt-4">
+              <h3 className="text-sm font-medium">Testar Configuração SMTP</h3>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <Input
+                    placeholder="Email para teste"
+                    value={testEmail}
+                    onChange={(e) => setTestEmail(e.target.value)}
+                    className="bg-vet-primary/20 border-vet-primary/30"
+                  />
+                </div>
+                <Button
+                  onClick={handleTestSMTP}
+                  variant="outline"
+                  disabled={isTesting}
+                  className="flex gap-2"
+                >
+                  {isTesting ? (
+                    <>Testando...</>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4" />
+                      <span>Testar</span>
+                    </>
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-gray-400">
+                Um email de teste será enviado para verificar a configuração SMTP.
+              </p>
             </div>
           </div>
           
@@ -392,12 +429,7 @@ const SMTPConfig = () => {
             
             <div className="pt-2">
               <Button
-                onClick={() => {
-                  toast({
-                    title: "Webhook de teste enviado",
-                    description: "Dados de teste enviados para o webhook de registro.",
-                  });
-                }}
+                onClick={handleTestWebhook}
                 variant="outline"
                 disabled={!config.webhook_url || isTesting}
                 className="flex gap-2"
@@ -426,7 +458,7 @@ const SMTPConfig = () => {
                 id="whatsapp_webhook_url"
                 value={config.whatsapp_webhook_url}
                 onChange={(e) => setConfig(prev => ({ ...prev, whatsapp_webhook_url: e.target.value }))}
-                placeholder="https://seu-sistema.com/webhook-whatsapp"
+                placeholder="https://atendimento-creditar-n8n.stpanz.easypanel.host/webhook-test/vetplataforma"
                 className="bg-background/50"
               />
             </div>

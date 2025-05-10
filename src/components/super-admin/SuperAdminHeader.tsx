@@ -1,31 +1,45 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
-import { Shield, LogOut } from 'lucide-react';
+import { Shield, LogOut } from "lucide-react";
+import { Link } from "react-router-dom";
 
 interface SuperAdminHeaderProps {
   onLogout: () => void;
 }
 
 const SuperAdminHeader: React.FC<SuperAdminHeaderProps> = ({ onLogout }) => {
+  const [currentDate] = useState(new Date().toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  }));
+  
   return (
-    <header className="border-b border-border bg-red-950">
-      <div className="container mx-auto py-4 px-4 flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <Shield className="h-5 w-5 text-white" />
-          <h1 className="text-2xl font-bold text-white">Super Admin</h1>
-        </div>
-        
-        <div className="flex items-center gap-4">
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={onLogout}
-            className="bg-transparent border-white/30 text-white hover:bg-white/10"
-          >
-            <LogOut className="h-4 w-4 mr-2" />
-            <span>Logout</span>
-          </Button>
+    <header className="bg-gray-900 border-b border-gray-800">
+      <div className="container mx-auto px-4 py-2">
+        <div className="flex items-center justify-between">
+          <Link to="/super-admin" className="flex items-center gap-2">
+            <Shield className="h-6 w-6 text-red-500" />
+            <div className="flex flex-col">
+              <span className="font-bold text-lg">Super Admin</span>
+              <span className="text-xs text-gray-400">Painel de Administração</span>
+            </div>
+          </Link>
+          
+          <div className="flex items-center gap-4">
+            <div className="text-sm text-gray-400">{currentDate}</div>
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onLogout}
+              className="gap-2"
+            >
+              <LogOut className="h-4 w-4" />
+              <span className="hidden sm:inline">Sair</span>
+            </Button>
+          </div>
         </div>
       </div>
     </header>
