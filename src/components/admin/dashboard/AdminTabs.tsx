@@ -1,6 +1,7 @@
+
 import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Home, Users, ClipboardList, Settings, BarChart } from 'lucide-react';
+import { Home, Users, ClipboardList, Settings, BarChart, Shield } from 'lucide-react';
 import Dashboard from '@/components/admin/dashboard/Dashboard';
 import LeadsTable from '@/components/admin/LeadsTable';
 import LandingPagesTable from '@/components/admin/LandingPagesTable';
@@ -17,6 +18,7 @@ interface AdminTabsProps {
 
 const AdminTabs: React.FC<AdminTabsProps> = ({ activeTab, setActiveTab, isAdmin, permissions }) => {
   const hasPermission = (permission: string) => permissions.includes(permission);
+  const isSuperAdmin = permissions.includes('super_admin_access');
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -51,6 +53,12 @@ const AdminTabs: React.FC<AdminTabsProps> = ({ activeTab, setActiveTab, isAdmin,
             <span>Admin</span>
           </TabsTrigger>
         )}
+        {isSuperAdmin && (
+          <TabsTrigger value="super-admin" className="flex items-center space-x-2">
+            <Shield className="h-4 w-4 text-red-500" />
+            <span className="text-red-500">Super Admin</span>
+          </TabsTrigger>
+        )}
       </TabsList>
 
       <TabsContent value="dashboard">
@@ -71,6 +79,15 @@ const AdminTabs: React.FC<AdminTabsProps> = ({ activeTab, setActiveTab, isAdmin,
 
       <TabsContent value="admin">
         <AdminSettings />
+      </TabsContent>
+
+      <TabsContent value="super-admin">
+        <div className="p-4 border border-red-500/20 rounded-lg bg-red-500/5">
+          <h2 className="text-xl font-bold text-red-500 mb-4">Super Admin Panel</h2>
+          <p className="text-muted-foreground">
+            This area is restricted to Super Administrators. Here you can manage all companies, users, and system-wide settings.
+          </p>
+        </div>
       </TabsContent>
     </Tabs>
   );

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,7 +19,8 @@ import {
   Trash2,
   Mail,
   Briefcase,
-  MoreVertical
+  MoreVertical,
+  Shield
 } from 'lucide-react';
 
 import { 
@@ -69,8 +69,9 @@ const UserManagement = () => {
     'Financeiro',
   ];
   
-  // Sample roles
+  // Sample roles - Adding Super Admin role
   const roles = [
+    'Super Admin',
     'Administrador',
     'Gerente',
     'Veterinário',
@@ -127,10 +128,10 @@ const UserManagement = () => {
       id: 5, 
       name: 'Lucas Gomes', 
       email: 'lucas@exemplo.com.br', 
-      role: 'Administrador', 
+      role: 'Super Admin', 
       department: 'Administrativo',
       avatar: 'https://i.pravatar.cc/150?img=60',
-      status: 'inactive',
+      status: 'active',
       dateAdded: '2025-01-05',
     },
   ]);

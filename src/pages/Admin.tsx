@@ -55,7 +55,21 @@ const Admin = () => {
       try {
         // In a real application, fetch permissions from a user_permissions table
         // For now, we'll use the user role
-        if (user.role === 'admin') {
+        if (user.role === 'super_admin') {
+          // Super admin has all permissions
+          setUserPermissions([
+            'view_dashboard',
+            'manage_leads',
+            'manage_landing_pages',
+            'manage_projects', 
+            'view_settings',
+            'manage_settings',
+            'view_facebook_campaigns',
+            'manage_facebook_campaigns',
+            'super_admin_access'
+          ]);
+        }
+        else if (user.role === 'admin') {
           setUserPermissions([
             'view_dashboard',
             'manage_leads',
@@ -122,7 +136,7 @@ const Admin = () => {
     );
   }
 
-  const isAdmin = user.role === 'admin';
+  const isAdmin = user.role === 'admin' || user.role === 'super_admin';
   
   return (
     <div className="flex flex-col min-h-screen bg-background">
