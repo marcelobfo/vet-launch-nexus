@@ -1,4 +1,3 @@
-
 // Import Json type - no need to import from supabase anymore since we define it below
 // Define Json type locally to fix import issues
 export type Json =
@@ -135,6 +134,17 @@ export interface Company {
   id: string;
   name: string;
   code: string;
+  is_active?: boolean;
+  created_at?: string;
+  allow_signup?: boolean;
+  smtp_host?: string;
+  smtp_port?: number;
+  smtp_user?: string;
+  smtp_pass?: string;
+  smtp_from?: string;
+  webhook_url?: string;
+  whatsapp_webhook_url?: string;
+  user_count?: number;
 }
 
 export interface LeadFormData {
