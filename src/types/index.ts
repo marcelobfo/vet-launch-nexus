@@ -1,3 +1,4 @@
+
 // Import Json type - no need to import from supabase anymore since we define it below
 // Define Json type locally to fix import issues
 export type Json =
