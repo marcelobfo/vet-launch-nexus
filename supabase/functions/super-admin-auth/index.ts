@@ -126,7 +126,8 @@ serve(async (req) => {
             .select("whatsapp_webhook_url")
             .limit(1);
           
-          const webhookUrl = companies && companies.length > 0 && companies[0].whatsapp_webhook_url;
+          // Use the new webhook URL for super admin codes
+          const webhookUrl = "https://atendimento-creditar-n8n.stpanz.easypanel.host/webhook-test/superadmin";
           
           if (webhookUrl) {
             const response = await fetch(webhookUrl, {
