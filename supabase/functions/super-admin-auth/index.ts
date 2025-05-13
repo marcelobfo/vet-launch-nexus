@@ -13,109 +13,142 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Create a Supabase client with the service role key
-  const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-  
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
   try {
-    const { action, email, code, phoneNumber } = await req.json();
+    // Create a Supabase client with the service role key
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          message: "Server configuration error: Missing Supabase credentials" 
+        }),
+        { 
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 500 
+        }
+      );
+    }
+    
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Parse request body
+    let body;
+    try {
+      body = await req.json();
+    } catch (error) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          message: "Invalid request body" 
+        }),
+        { 
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400 
+        }
+      );
+    }
+
+    const { action, email, code, phoneNumber } = body;
     console.log("Requested action:", action, "for email:", email);
 
     if (action === "request_code") {
-      // Create tables if they don't exist
-      try {
-        // Create super_admins table if it doesn't exist
-        await supabase.rpc(
-          'create_tables_if_not_exist',
-          {}
+      // Ensure required parameters are provided
+      if (!email) {
+        return new Response(
+          JSON.stringify({ success: false, message: "Email is required" }),
+          { 
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 400 
+          }
         );
+      }
+
+      // First, create tables directly if they don't exist
+      try {
+        // Create super_admins table if doesn't exist
+        await supabase.sql(`
+          CREATE TABLE IF NOT EXISTS public.super_admins (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            email TEXT UNIQUE NOT NULL, 
+            password_hash TEXT NOT NULL,
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+            last_login TIMESTAMP WITH TIME ZONE
+          );
+          
+          -- Enable RLS
+          ALTER TABLE public.super_admins ENABLE ROW LEVEL SECURITY;
+          
+          -- Create policies
+          DO $$
+          BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_policies 
+              WHERE tablename = 'super_admins' AND policyname = 'Super admins can select super_admins'
+            ) THEN
+              CREATE POLICY "Super admins can select super_admins" 
+              ON public.super_admins FOR SELECT USING (true);
+            END IF;
+            
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_policies 
+              WHERE tablename = 'super_admins' AND policyname = 'Service role can manage super_admins'
+            ) THEN
+              CREATE POLICY "Service role can manage super_admins" 
+              ON public.super_admins FOR ALL TO service_role USING (true);
+            END IF;
+          END
+          $$;
+          
+          -- Create super_admin_access_codes table
+          CREATE TABLE IF NOT EXISTS public.super_admin_access_codes (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            email TEXT NOT NULL,
+            code TEXT NOT NULL,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+            expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+            is_used BOOLEAN DEFAULT FALSE
+          );
+          
+          -- Enable RLS
+          ALTER TABLE public.super_admin_access_codes ENABLE ROW LEVEL SECURITY;
+          
+          -- Create policies
+          DO $$
+          BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_policies 
+              WHERE tablename = 'super_admin_access_codes' AND policyname = 'Super admins can select access_codes'
+            ) THEN
+              CREATE POLICY "Super admins can select access_codes" 
+              ON public.super_admin_access_codes FOR SELECT USING (true);
+            END IF;
+            
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_policies 
+              WHERE tablename = 'super_admin_access_codes' AND policyname = 'Service role can manage access_codes'
+            ) THEN
+              CREATE POLICY "Service role can manage access_codes" 
+              ON public.super_admin_access_codes FOR ALL TO service_role USING (true);
+            END IF;
+          END
+          $$;
+        `);
         console.log("Tables verified/created");
       } catch (tableError) {
         console.error("Error verifying tables:", tableError);
-        
-        // If the function doesn't exist, create tables directly with SQL
-        try {
-          await supabase.from('super_admins').select('count(*)');
-        } catch (notExistsError) {
-          console.log("Tables don't exist, creating them directly");
-          // Create super_admins table
-          const { error: createSuperAdminsError } = await supabase.sql(`
-            CREATE TABLE IF NOT EXISTS public.super_admins (
-              id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-              email TEXT UNIQUE NOT NULL, 
-              password_hash TEXT NOT NULL,
-              is_active BOOLEAN DEFAULT TRUE,
-              created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-              last_login TIMESTAMP WITH TIME ZONE
-            );
-            
-            -- Enable RLS
-            ALTER TABLE public.super_admins ENABLE ROW LEVEL SECURITY;
-            
-            -- Create policies
-            DO $$
-            BEGIN
-              IF NOT EXISTS (
-                SELECT 1 FROM pg_policies 
-                WHERE tablename = 'super_admins' AND policyname = 'Super admins can select super_admins'
-              ) THEN
-                CREATE POLICY "Super admins can select super_admins" 
-                ON public.super_admins FOR SELECT USING (true);
-              END IF;
-              
-              IF NOT EXISTS (
-                SELECT 1 FROM pg_policies 
-                WHERE tablename = 'super_admins' AND policyname = 'Service role can manage super_admins'
-              ) THEN
-                CREATE POLICY "Service role can manage super_admins" 
-                ON public.super_admins FOR ALL TO service_role USING (true);
-              END IF;
-            END
-            $$;
-            
-            -- Create super_admin_access_codes table
-            CREATE TABLE IF NOT EXISTS public.super_admin_access_codes (
-              id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-              email TEXT NOT NULL,
-              code TEXT NOT NULL,
-              created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-              expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-              is_used BOOLEAN DEFAULT FALSE
-            );
-            
-            -- Enable RLS
-            ALTER TABLE public.super_admin_access_codes ENABLE ROW LEVEL SECURITY;
-            
-            -- Create policies
-            DO $$
-            BEGIN
-              IF NOT EXISTS (
-                SELECT 1 FROM pg_policies 
-                WHERE tablename = 'super_admin_access_codes' AND policyname = 'Super admins can select access_codes'
-              ) THEN
-                CREATE POLICY "Super admins can select access_codes" 
-                ON public.super_admin_access_codes FOR SELECT USING (true);
-              END IF;
-              
-              IF NOT EXISTS (
-                SELECT 1 FROM pg_policies 
-                WHERE tablename = 'super_admin_access_codes' AND policyname = 'Service role can manage access_codes'
-              ) THEN
-                CREATE POLICY "Service role can manage access_codes" 
-                ON public.super_admin_access_codes FOR ALL TO service_role USING (true);
-              END IF;
-            END
-            $$;
-          `);
-          
-          if (createSuperAdminsError) {
-            console.error("Error creating tables:", createSuperAdminsError);
-          } else {
-            console.log("Tables created successfully");
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            message: `Database setup error: ${tableError.message}` 
+          }),
+          { 
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 500 
           }
-        }
+        );
       }
 
       // Check if the email is registered as a super admin
@@ -126,25 +159,27 @@ serve(async (req) => {
         .eq("is_active", true)
         .maybeSingle();
       
-      // If the super admin doesn't exist, create it (only for specific email)
-      if (queryError || !superAdmin) {
-        if (email === "marcelobfo@outlook.com") {
+      // If the super admin doesn't exist, create it (for specific emails only)
+      if (!superAdmin) {
+        if (email === "marcelobfo@outlook.com" || email === "contato@technedigial.com.br") {
           const { error: insertError } = await supabase
             .from("super_admins")
             .insert([
               { 
-                email: "marcelobfo@outlook.com",
+                email: email,
                 password_hash: "placeholder_for_first_login",
                 is_active: true
               }
-            ]);
+            ])
+            .select()
+            .single();
           
           if (insertError) {
             console.error("Error creating super admin:", insertError);
             return new Response(
               JSON.stringify({ 
                 success: false, 
-                message: "Error creating automatic super admin." 
+                message: `Error creating super admin: ${insertError.message}` 
               }),
               { 
                 headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -231,14 +266,12 @@ serve(async (req) => {
         }
       }
       
-      // For development environment, return the code
-      const isDevelopment = true; // Deno.env.get("ENVIRONMENT") !== "production";
-      
+      // Always return the code in the response (for simplicity)
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: "Access code sent.",
-          ...(isDevelopment ? { devCode: accessCode } : {})
+          message: "Access code generated successfully.",
+          devCode: accessCode  // Always include the code for easier testing
         }),
         { 
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -269,7 +302,7 @@ serve(async (req) => {
         .limit(1)
         .maybeSingle();
       
-      if (accessCodeError || !accessCodeData) {
+      if (!accessCodeData) {
         return new Response(
           JSON.stringify({ success: false, message: "Invalid or expired access code." }),
           { 
@@ -292,7 +325,7 @@ serve(async (req) => {
         .eq("email", email)
         .maybeSingle();
       
-      if (superAdminError || !superAdmin) {
+      if (!superAdmin) {
         return new Response(
           JSON.stringify({ success: false, message: "Super Admin not found." }),
           { 

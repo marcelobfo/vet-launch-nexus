@@ -13,12 +13,13 @@ const SuperAdminLogin = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [email, setEmail] = useState("marcelobfo@outlook.com"); // Pre-set the email
-  const [whatsapp, setWhatsapp] = useState("38988285462"); // Pre-set the WhatsApp number
+  const [email, setEmail] = useState("marcelobfo@outlook.com");
+  const [whatsapp, setWhatsapp] = useState("38988285462");
   const [accessCode, setAccessCode] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [step, setStep] = useState<'email' | 'code'>('email');
   const [error, setError] = useState<string | null>(null);
+  const [devCode, setDevCode] = useState<string | null>(null);
   
   // Check if user is already authenticated as super admin
   useEffect(() => {
@@ -54,19 +55,25 @@ const SuperAdminLogin = () => {
     
     try {
       console.log("Solicitando código para:", email);
-      // Call the edge function to request an access code
-      const { data, error } = await supabase.functions.invoke('super-admin-auth', {
-        body: {
+      
+      const response = await fetch(`https://opipazvvefdcdyywybpm.supabase.co/functions/v1/super-admin-auth`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabase.auth.getSession()}`
+        },
+        body: JSON.stringify({
           action: 'request_code',
           email,
           phoneNumber: whatsapp
-        }
+        })
       });
       
-      console.log("Resposta:", data, error);
+      const data = await response.json();
+      console.log("Resposta:", data);
       
-      if (error) {
-        throw new Error(error.message || "Erro ao comunicar com o servidor");
+      if (!response.ok) {
+        throw new Error(data.message || "Erro ao comunicar com o servidor");
       }
       
       if (!data.success) {
@@ -81,16 +88,17 @@ const SuperAdminLogin = () => {
       // Move to code verification step
       setStep('code');
       
-      // In development, show the code in the toast if available
+      // Store the dev code if available
       if (data.devCode) {
+        setDevCode(data.devCode);
         toast({
           title: "Código de desenvolvimento",
-          description: `Código: ${data.devCode} (apenas visível em ambiente de desenvolvimento)`,
+          description: `Código: ${data.devCode}`,
           variant: "default"
         });
       }
       
-    } catch (err) {
+    } catch (err: any) {
       console.error("Erro ao solicitar código:", err);
       setError(err.message || "Não foi possível enviar o código de acesso.");
       toast({
@@ -115,17 +123,23 @@ const SuperAdminLogin = () => {
     setError(null);
     
     try {
-      // Call the edge function to verify the access code
-      const { data, error } = await supabase.functions.invoke('super-admin-auth', {
-        body: {
+      const response = await fetch(`https://opipazvvefdcdyywybpm.supabase.co/functions/v1/super-admin-auth`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabase.auth.getSession()}`
+        },
+        body: JSON.stringify({
           action: 'verify_code',
           email,
           code: accessCode
-        }
+        })
       });
       
-      if (error) {
-        throw new Error(error.message || "Erro ao comunicar com o servidor");
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || "Erro ao comunicar com o servidor");
       }
       
       if (!data.success || !data.session) {
@@ -142,7 +156,7 @@ const SuperAdminLogin = () => {
       
       // Redirect to super admin dashboard
       navigate('/super-admin');
-    } catch (err) {
+    } catch (err: any) {
       console.error("Erro ao verificar código:", err);
       setError(err.message || "Não foi possível autenticar. Verifique o código e tente novamente.");
       toast({
@@ -159,6 +173,12 @@ const SuperAdminLogin = () => {
     setStep('email');
     setAccessCode('');
     setError(null);
+  };
+
+  const autoFillCode = () => {
+    if (devCode) {
+      setAccessCode(devCode);
+    }
   };
   
   return (
@@ -236,17 +256,30 @@ const SuperAdminLogin = () => {
               <form onSubmit={handleVerifyCode} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="accessCode">Código de Acesso</Label>
-                  <Input
-                    id="accessCode"
-                    type="text"
-                    placeholder="XXXX-XXXX"
-                    value={accessCode}
-                    onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
-                    className="bg-background/50 border-input/50 text-center tracking-widest font-mono"
-                    maxLength={8}
-                    autoComplete="off"
-                    autoFocus
-                  />
+                  <div className="relative">
+                    <Input
+                      id="accessCode"
+                      type="text"
+                      placeholder="XXXX-XXXX"
+                      value={accessCode}
+                      onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
+                      className="bg-background/50 border-input/50 text-center tracking-widest font-mono"
+                      maxLength={8}
+                      autoComplete="off"
+                      autoFocus
+                    />
+                    {devCode && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-xs"
+                        onClick={autoFillCode}
+                      >
+                        Auto-preencher
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 
                 <div className="flex flex-col space-y-2">
