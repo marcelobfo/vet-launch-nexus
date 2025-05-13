@@ -24,11 +24,98 @@ serve(async (req) => {
     console.log("Requested action:", action, "for email:", email);
 
     if (action === "request_code") {
-      // Primeiro cria a tabela super_admins se não existir
-      const { error: createTableError } = await supabase.rpc('create_super_admins_if_not_exists');
-      if (createTableError) {
-        console.error("Erro ao verificar tabela:", createTableError);
-        // Continuamos mesmo se houver erro, pois a tabela pode já existir
+      // Create tables if they don't exist
+      try {
+        // Create super_admins table if it doesn't exist
+        await supabase.rpc(
+          'create_tables_if_not_exist',
+          {}
+        );
+        console.log("Tables verified/created");
+      } catch (tableError) {
+        console.error("Error verifying tables:", tableError);
+        
+        // If the function doesn't exist, create tables directly with SQL
+        try {
+          await supabase.from('super_admins').select('count(*)');
+        } catch (notExistsError) {
+          console.log("Tables don't exist, creating them directly");
+          // Create super_admins table
+          const { error: createSuperAdminsError } = await supabase.sql(`
+            CREATE TABLE IF NOT EXISTS public.super_admins (
+              id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+              email TEXT UNIQUE NOT NULL, 
+              password_hash TEXT NOT NULL,
+              is_active BOOLEAN DEFAULT TRUE,
+              created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+              last_login TIMESTAMP WITH TIME ZONE
+            );
+            
+            -- Enable RLS
+            ALTER TABLE public.super_admins ENABLE ROW LEVEL SECURITY;
+            
+            -- Create policies
+            DO $$
+            BEGIN
+              IF NOT EXISTS (
+                SELECT 1 FROM pg_policies 
+                WHERE tablename = 'super_admins' AND policyname = 'Super admins can select super_admins'
+              ) THEN
+                CREATE POLICY "Super admins can select super_admins" 
+                ON public.super_admins FOR SELECT USING (true);
+              END IF;
+              
+              IF NOT EXISTS (
+                SELECT 1 FROM pg_policies 
+                WHERE tablename = 'super_admins' AND policyname = 'Service role can manage super_admins'
+              ) THEN
+                CREATE POLICY "Service role can manage super_admins" 
+                ON public.super_admins FOR ALL TO service_role USING (true);
+              END IF;
+            END
+            $$;
+            
+            -- Create super_admin_access_codes table
+            CREATE TABLE IF NOT EXISTS public.super_admin_access_codes (
+              id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+              email TEXT NOT NULL,
+              code TEXT NOT NULL,
+              created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+              expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+              is_used BOOLEAN DEFAULT FALSE
+            );
+            
+            -- Enable RLS
+            ALTER TABLE public.super_admin_access_codes ENABLE ROW LEVEL SECURITY;
+            
+            -- Create policies
+            DO $$
+            BEGIN
+              IF NOT EXISTS (
+                SELECT 1 FROM pg_policies 
+                WHERE tablename = 'super_admin_access_codes' AND policyname = 'Super admins can select access_codes'
+              ) THEN
+                CREATE POLICY "Super admins can select access_codes" 
+                ON public.super_admin_access_codes FOR SELECT USING (true);
+              END IF;
+              
+              IF NOT EXISTS (
+                SELECT 1 FROM pg_policies 
+                WHERE tablename = 'super_admin_access_codes' AND policyname = 'Service role can manage access_codes'
+              ) THEN
+                CREATE POLICY "Service role can manage access_codes" 
+                ON public.super_admin_access_codes FOR ALL TO service_role USING (true);
+              END IF;
+            END
+            $$;
+          `);
+          
+          if (createSuperAdminsError) {
+            console.error("Error creating tables:", createSuperAdminsError);
+          } else {
+            console.log("Tables created successfully");
+          }
+        }
       }
 
       // Check if the email is registered as a super admin
@@ -39,7 +126,7 @@ serve(async (req) => {
         .eq("is_active", true)
         .maybeSingle();
       
-      // Se não encontrou o super admin, crie-o (apenas para o email específico)
+      // If the super admin doesn't exist, create it (only for specific email)
       if (queryError || !superAdmin) {
         if (email === "marcelobfo@outlook.com") {
           const { error: insertError } = await supabase
@@ -50,26 +137,26 @@ serve(async (req) => {
                 password_hash: "placeholder_for_first_login",
                 is_active: true
               }
-            ])
-            .select()
-            .single();
+            ]);
           
           if (insertError) {
-            console.error("Erro ao criar super admin:", insertError);
+            console.error("Error creating super admin:", insertError);
             return new Response(
               JSON.stringify({ 
                 success: false, 
-                message: "Erro ao criar super admin automático." 
+                message: "Error creating automatic super admin." 
               }),
               { 
                 headers: { ...corsHeaders, "Content-Type": "application/json" },
                 status: 500 
               }
             );
+          } else {
+            console.log("Created super admin for:", email);
           }
         } else {
           return new Response(
-            JSON.stringify({ success: false, message: "Email não registrado como Super Admin." }),
+            JSON.stringify({ success: false, message: "Email not registered as Super Admin." }),
             { 
               headers: { ...corsHeaders, "Content-Type": "application/json" },
               status: 404 
@@ -86,13 +173,6 @@ serve(async (req) => {
       const expiresAt = new Date();
       expiresAt.setMinutes(expiresAt.getMinutes() + 30);
       
-      // Primeiro cria a tabela de códigos se não existir
-      const { error: createCodesTableError } = await supabase.rpc('create_super_admin_access_codes_if_not_exists');
-      if (createCodesTableError) {
-        console.error("Erro ao verificar tabela de códigos:", createCodesTableError);
-        // Continuamos mesmo se houver erro, pois a tabela pode já existir
-      }
-      
       // Store the access code
       const { error: insertError } = await supabase
         .from("super_admin_access_codes")
@@ -106,9 +186,9 @@ serve(async (req) => {
         ]);
       
       if (insertError) {
-        console.error("Erro ao armazenar código:", insertError);
+        console.error("Error storing code:", insertError);
         return new Response(
-          JSON.stringify({ success: false, message: `Erro ao armazenar código: ${insertError.message}` }),
+          JSON.stringify({ success: false, message: `Error storing code: ${insertError.message}` }),
           { 
             headers: { ...corsHeaders, "Content-Type": "application/json" },
             status: 500 
@@ -119,14 +199,8 @@ serve(async (req) => {
       // Send the code via WhatsApp if phoneNumber is provided
       if (phoneNumber) {
         try {
-          console.log("Enviando código de acesso via webhook para", phoneNumber);
-          // Get the company for webhook URL
-          const { data: companies } = await supabase
-            .from("companies")
-            .select("whatsapp_webhook_url")
-            .limit(1);
-          
-          // Use the new webhook URL for super admin codes
+          console.log("Sending access code via webhook to", phoneNumber);
+          // Use the configured webhook URL for super admin codes
           const webhookUrl = "https://atendimento-creditar-n8n.stpanz.easypanel.host/webhook-test/superadmin";
           
           if (webhookUrl) {
@@ -149,7 +223,7 @@ serve(async (req) => {
             if (!response.ok) {
               console.error("Failed to send WhatsApp message:", await response.text());
             } else {
-              console.log("Código de acesso enviado com sucesso via webhook WhatsApp");
+              console.log("Access code sent successfully via WhatsApp webhook");
             }
           }
         } catch (webhookError) {
@@ -163,7 +237,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: "Código de acesso enviado.",
+          message: "Access code sent.",
           ...(isDevelopment ? { devCode: accessCode } : {})
         }),
         { 
@@ -175,7 +249,7 @@ serve(async (req) => {
     else if (action === "verify_code") {
       if (!email || !code) {
         return new Response(
-          JSON.stringify({ success: false, message: "Email e código são obrigatórios." }),
+          JSON.stringify({ success: false, message: "Email and code are required." }),
           { 
             headers: { ...corsHeaders, "Content-Type": "application/json" },
             status: 400 
@@ -197,7 +271,7 @@ serve(async (req) => {
       
       if (accessCodeError || !accessCodeData) {
         return new Response(
-          JSON.stringify({ success: false, message: "Código de acesso inválido ou expirado." }),
+          JSON.stringify({ success: false, message: "Invalid or expired access code." }),
           { 
             headers: { ...corsHeaders, "Content-Type": "application/json" },
             status: 401 
@@ -220,7 +294,7 @@ serve(async (req) => {
       
       if (superAdminError || !superAdmin) {
         return new Response(
-          JSON.stringify({ success: false, message: "Super Admin não encontrado." }),
+          JSON.stringify({ success: false, message: "Super Admin not found." }),
           { 
             headers: { ...corsHeaders, "Content-Type": "application/json" },
             status: 404 
@@ -241,7 +315,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: "Autenticação bem-sucedida.",
+          message: "Authentication successful.",
           session: {
             id: superAdmin.id,
             email: superAdmin.email,
@@ -257,7 +331,7 @@ serve(async (req) => {
     }
     else {
       return new Response(
-        JSON.stringify({ success: false, message: "Ação inválida." }),
+        JSON.stringify({ success: false, message: "Invalid action." }),
         { 
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 400 
@@ -265,11 +339,11 @@ serve(async (req) => {
       );
     }
   } catch (error) {
-    console.error("Erro na função super-admin-auth:", error);
+    console.error("Error in super-admin-auth function:", error);
     return new Response(
       JSON.stringify({ 
         success: false,
-        message: `Erro no servidor: ${error.message}` 
+        message: `Server error: ${error.message}` 
       }),
       { 
         headers: { ...corsHeaders, "Content-Type": "application/json" },
