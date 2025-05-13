@@ -6,3 +6,6 @@ verify_jwt = false
 
 [functions.super-admin-auth]
 verify_jwt = false
+
+[functions.send-email-smtp]
+verify_jwt = false

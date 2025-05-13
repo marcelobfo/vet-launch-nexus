@@ -13,7 +13,7 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Create a Supabase client with the service role key (necessary to bypass RLS)
+  // Create a Supabase client with the service role key
   const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
   
@@ -21,33 +21,77 @@ serve(async (req) => {
 
   try {
     const { action, email, code, phoneNumber } = await req.json();
+    console.log("Requested action:", action, "for email:", email);
 
     if (action === "request_code") {
+      // Primeiro cria a tabela super_admins se não existir
+      const { error: createTableError } = await supabase.rpc('create_super_admins_if_not_exists');
+      if (createTableError) {
+        console.error("Erro ao verificar tabela:", createTableError);
+        // Continuamos mesmo se houver erro, pois a tabela pode já existir
+      }
+
       // Check if the email is registered as a super admin
       const { data: superAdmin, error: queryError } = await supabase
         .from("super_admins")
         .select("*")
         .eq("email", email)
         .eq("is_active", true)
-        .single();
+        .maybeSingle();
       
+      // Se não encontrou o super admin, crie-o (apenas para o email específico)
       if (queryError || !superAdmin) {
-        return new Response(
-          JSON.stringify({ success: false, message: "Email não registrado como Super Admin." }),
-          { 
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-            status: 404 
+        if (email === "marcelobfo@outlook.com") {
+          const { error: insertError } = await supabase
+            .from("super_admins")
+            .insert([
+              { 
+                email: "marcelobfo@outlook.com",
+                password_hash: "placeholder_for_first_login",
+                is_active: true
+              }
+            ])
+            .select()
+            .single();
+          
+          if (insertError) {
+            console.error("Erro ao criar super admin:", insertError);
+            return new Response(
+              JSON.stringify({ 
+                success: false, 
+                message: "Erro ao criar super admin automático." 
+              }),
+              { 
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+                status: 500 
+              }
+            );
           }
-        );
+        } else {
+          return new Response(
+            JSON.stringify({ success: false, message: "Email não registrado como Super Admin." }),
+            { 
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 404 
+            }
+          );
+        }
       }
 
       // Generate a random 8 character access code
       const accessCode = Math.random().toString(36).substring(2, 6).toUpperCase() + 
-                         Math.random().toString(36).substring(2, 6).toUpperCase();
+                       Math.random().toString(36).substring(2, 6).toUpperCase();
       
       // Set expiration to 30 minutes from now
       const expiresAt = new Date();
       expiresAt.setMinutes(expiresAt.getMinutes() + 30);
+      
+      // Primeiro cria a tabela de códigos se não existir
+      const { error: createCodesTableError } = await supabase.rpc('create_super_admin_access_codes_if_not_exists');
+      if (createCodesTableError) {
+        console.error("Erro ao verificar tabela de códigos:", createCodesTableError);
+        // Continuamos mesmo se houver erro, pois a tabela pode já existir
+      }
       
       // Store the access code
       const { error: insertError } = await supabase
@@ -62,21 +106,30 @@ serve(async (req) => {
         ]);
       
       if (insertError) {
-        throw new Error(`Error storing access code: ${insertError.message}`);
+        console.error("Erro ao armazenar código:", insertError);
+        return new Response(
+          JSON.stringify({ success: false, message: `Erro ao armazenar código: ${insertError.message}` }),
+          { 
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 500 
+          }
+        );
       }
       
       // Send the code via WhatsApp if phoneNumber is provided
       if (phoneNumber) {
         try {
+          console.log("Enviando código de acesso via webhook para", phoneNumber);
           // Get the company for webhook URL
-          const { data: company } = await supabase
+          const { data: companies } = await supabase
             .from("companies")
             .select("whatsapp_webhook_url")
-            .limit(1)
-            .single();
+            .limit(1);
           
-          if (company?.whatsapp_webhook_url) {
-            const response = await fetch(company.whatsapp_webhook_url, {
+          const webhookUrl = companies && companies.length > 0 && companies[0].whatsapp_webhook_url;
+          
+          if (webhookUrl) {
+            const response = await fetch(webhookUrl, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
@@ -95,7 +148,7 @@ serve(async (req) => {
             if (!response.ok) {
               console.error("Failed to send WhatsApp message:", await response.text());
             } else {
-              console.log("WhatsApp message sent successfully");
+              console.log("Código de acesso enviado com sucesso via webhook WhatsApp");
             }
           }
         } catch (webhookError) {
@@ -104,7 +157,7 @@ serve(async (req) => {
       }
       
       // For development environment, return the code
-      const isDevelopment = Deno.env.get("ENVIRONMENT") !== "production";
+      const isDevelopment = true; // Deno.env.get("ENVIRONMENT") !== "production";
       
       return new Response(
         JSON.stringify({ 
@@ -139,7 +192,7 @@ serve(async (req) => {
         .gt("expires_at", new Date().toISOString())
         .order("created_at", { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
       
       if (accessCodeError || !accessCodeData) {
         return new Response(
@@ -162,7 +215,7 @@ serve(async (req) => {
         .from("super_admins")
         .select("*")
         .eq("email", email)
-        .single();
+        .maybeSingle();
       
       if (superAdminError || !superAdmin) {
         return new Response(
@@ -211,7 +264,7 @@ serve(async (req) => {
       );
     }
   } catch (error) {
-    console.error("Error in super-admin-auth function:", error);
+    console.error("Erro na função super-admin-auth:", error);
     return new Response(
       JSON.stringify({ 
         success: false,

@@ -6,18 +6,19 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Lock, Shield } from "lucide-react";
+import { Lock, Shield, AlertCircle } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 
 const SuperAdminLogin = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState("marcelobfo@outlook.com"); // Pre-set the email
   const [whatsapp, setWhatsapp] = useState("38988285462"); // Pre-set the WhatsApp number
   const [accessCode, setAccessCode] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [step, setStep] = useState<'email' | 'code'>('email');
+  const [error, setError] = useState<string | null>(null);
   
   // Check if user is already authenticated as super admin
   useEffect(() => {
@@ -44,17 +45,15 @@ const SuperAdminLogin = () => {
     if (e) e.preventDefault();
     
     if (!email) {
-      toast({
-        title: "Email necessário",
-        description: "Por favor, informe o email para solicitar o código de acesso.",
-        variant: "destructive"
-      });
+      setError("Por favor, informe o email para solicitar o código de acesso.");
       return;
     }
     
     setLoading(true);
+    setError(null);
     
     try {
+      console.log("Solicitando código para:", email);
       // Call the edge function to request an access code
       const { data, error } = await supabase.functions.invoke('super-admin-auth', {
         body: {
@@ -64,8 +63,10 @@ const SuperAdminLogin = () => {
         }
       });
       
+      console.log("Resposta:", data, error);
+      
       if (error) {
-        throw new Error(error.message);
+        throw new Error(error.message || "Erro ao comunicar com o servidor");
       }
       
       if (!data.success) {
@@ -89,11 +90,12 @@ const SuperAdminLogin = () => {
         });
       }
       
-    } catch (error) {
-      console.error("Erro ao solicitar código:", error);
+    } catch (err) {
+      console.error("Erro ao solicitar código:", err);
+      setError(err.message || "Não foi possível enviar o código de acesso.");
       toast({
         title: "Erro",
-        description: error.message || "Não foi possível enviar o código de acesso.",
+        description: err.message || "Não foi possível enviar o código de acesso.",
         variant: "destructive"
       });
     } finally {
@@ -105,15 +107,12 @@ const SuperAdminLogin = () => {
     e.preventDefault();
     
     if (!accessCode) {
-      toast({
-        title: "Código necessário",
-        description: "Por favor, digite o código de acesso recebido.",
-        variant: "destructive"
-      });
+      setError("Por favor, digite o código de acesso recebido.");
       return;
     }
     
     setLoading(true);
+    setError(null);
     
     try {
       // Call the edge function to verify the access code
@@ -126,7 +125,7 @@ const SuperAdminLogin = () => {
       });
       
       if (error) {
-        throw new Error(error.message);
+        throw new Error(error.message || "Erro ao comunicar com o servidor");
       }
       
       if (!data.success || !data.session) {
@@ -143,11 +142,12 @@ const SuperAdminLogin = () => {
       
       // Redirect to super admin dashboard
       navigate('/super-admin');
-    } catch (error) {
-      console.error("Erro ao verificar código:", error);
+    } catch (err) {
+      console.error("Erro ao verificar código:", err);
+      setError(err.message || "Não foi possível autenticar. Verifique o código e tente novamente.");
       toast({
         title: "Erro de autenticação",
-        description: error.message || "Não foi possível autenticar. Verifique o código e tente novamente.",
+        description: err.message || "Não foi possível autenticar. Verifique o código e tente novamente.",
         variant: "destructive"
       });
     } finally {
@@ -158,6 +158,7 @@ const SuperAdminLogin = () => {
   const goBack = () => {
     setStep('email');
     setAccessCode('');
+    setError(null);
   };
   
   return (
@@ -182,6 +183,13 @@ const SuperAdminLogin = () => {
           </CardHeader>
           
           <CardContent>
+            {error && (
+              <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-md flex items-start gap-2">
+                <AlertCircle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+                <span className="text-sm text-red-500">{error}</span>
+              </div>
+            )}
+            
             {step === 'email' ? (
               <form onSubmit={handleRequestCode} className="space-y-4">
                 <div className="space-y-2">
@@ -215,7 +223,10 @@ const SuperAdminLogin = () => {
                   disabled={loading}
                 >
                   {loading ? (
-                    "Enviando código..."
+                    <span className="flex items-center">
+                      <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                      Enviando código...
+                    </span>
                   ) : (
                     "Solicitar Código de Acesso"
                   )}
@@ -245,7 +256,10 @@ const SuperAdminLogin = () => {
                     disabled={loading}
                   >
                     {loading ? (
-                      "Verificando..."
+                      <span className="flex items-center">
+                        <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                        Verificando...
+                      </span>
                     ) : (
                       <>
                         <Lock className="mr-2 h-4 w-4" />
